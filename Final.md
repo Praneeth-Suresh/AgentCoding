@@ -35,6 +35,7 @@ agent/
   testing-policy.md
   security-policy.md
   agent-rules.md
+  tool-instruction-template.md
   mcp.json
   skills/
     grilling-design/
@@ -68,6 +69,90 @@ CLAUDE.md
 ```
 
 Treat these as generated shims. The real source of truth stays in `agent/`.
+
+### Tool-Specific Instruction Prompt
+
+Add this exact prompt to `agent/tool-instruction-template.md`, then copy it into each tool-specific instruction file, including `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/agent-rules.md`, `.github/copilot-instructions.md`, and `.codex/AGENTS.md`.
+
+The prompt is deliberately short. Its job is not to repeat every rule. Its job is to make each agent load the canonical repo files, obey their precedence, and keep its work inside deterministic feedback loops.
+
+```md
+# Agent Operating Instructions
+
+This tool-specific instruction file is a generated shim. Do not edit this copy manually. Update `agent/tool-instruction-template.md` and rerun `agent/scripts/sync-agent-env.sh`.
+
+You are working in this repository as an implementation agent. Treat the repository files as the source of truth. Do not rely on hidden chat history, memory, or assumptions when a repo-owned instruction file answers the question.
+
+## Instruction Precedence
+
+1. Follow explicit user instructions for the current task.
+2. Follow the canonical files in `agent/`.
+3. Follow this tool-specific shim.
+4. Follow existing code, tests, and local conventions.
+
+If this shim conflicts with files under `agent/`, treat this shim as stale, follow the `agent/` files, and mention the conflict in your final response.
+
+## Required Context Before Editing
+
+Before changing code or tests, read the smallest relevant set of canonical files:
+
+- `agent/project-brief.md` for product goals, users, workflows, non-goals, and definition of done.
+- `agent/design-tree.md` for the current design concept, open decisions, settled decisions, and pressure points.
+- `agent/architecture.md` for bounded contexts, module ownership, public interfaces, adapters, and forbidden imports.
+- `agent/ubiquitous-language.md` for domain terms, technical symbols, definitions, constraints, and names to avoid.
+- `agent/testing-policy.md` for required test levels, mocking rules, and when tests may change.
+- `agent/agent-rules.md` for the day-to-day implementation workflow.
+
+Load additional files only when they are relevant to the task. Keep context focused.
+
+## Skill Use
+
+Skills live under `agent/skills/<skill-name>/SKILL.md`. Use a skill when its name or purpose matches the task.
+
+Default triggers:
+
+- Use `grilling-design` before non-trivial features, architecture changes, cross-context changes, or ambiguous bug fixes.
+- Use `testing-vertical-slices` for feature work and bug fixes that need behavior verification.
+- Use `improving-architecture` when a change exposes shallow modules, unclear ownership, repeated coupling, or hard-to-test structure.
+- Use `tracking-entropy` when asked to assess maintainability, hotspots, churn, complexity, or refactoring priority.
+
+When using a skill, read its `SKILL.md`, follow its process, and load only the referenced supporting files needed for the current task.
+
+## Default Work Loop
+
+For every implementation task:
+
+1. Restate the requested behavior and identify the bounded context.
+2. Identify the intended public interface and the files likely to change.
+3. Add or identify the smallest test or deterministic check that proves the behavior.
+4. Implement one vertical slice at a time.
+5. Run the narrowest relevant check first, then the broader relevant suite.
+6. Repair based on actual tool output, not guesswork.
+7. Update `agent/ubiquitous-language.md`, `agent/design-tree.md`, `agent/architecture.md`, or `agent/adr/` if the change alters domain language, boundaries, or durable design decisions.
+
+## Engineering Rules
+
+- Prefer existing project patterns over new abstractions.
+- Keep public interfaces small and explicit.
+- Do not import another bounded context's internals.
+- Put external systems behind adapters; do not leak API clients, ORM records, HTTP objects, or UI state into domain logic.
+- Use domain names from `agent/ubiquitous-language.md`; add new domain terms when needed.
+- Write types or interfaces before implementation when the language supports it.
+- Do not weaken tests to make implementation pass.
+- Do not edit unrelated files.
+- Do not store secrets in code, tests, logs, prompts, or instruction files.
+
+## Verification
+
+Run the checks required by `agent/testing-policy.md` and the local toolchain. If a required check cannot run, explain why and state the risk.
+
+Your final response must include:
+
+- What changed.
+- Which checks ran.
+- Which checks were skipped or unavailable.
+- Any design files, glossary entries, or ADRs updated.
+```
 
 ## Step 2: Write The Minimum Useful Instruction Files
 
@@ -511,6 +596,7 @@ test -f agent/ubiquitous-language.md
 test -f agent/architecture.md
 test -f agent/testing-policy.md
 test -f agent/agent-rules.md
+test -f agent/tool-instruction-template.md
 
 command -v git >/dev/null
 
@@ -532,21 +618,22 @@ Example:
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+SHIM="$ROOT/agent/tool-instruction-template.md"
 
 mkdir -p "$ROOT/.codex"
 mkdir -p "$ROOT/.cursor/rules"
 mkdir -p "$ROOT/.github"
 
-cp "$ROOT/agent/agent-rules.md" "$ROOT/AGENTS.md"
-cp "$ROOT/agent/agent-rules.md" "$ROOT/CLAUDE.md"
-cp "$ROOT/agent/agent-rules.md" "$ROOT/.codex/AGENTS.md"
-cp "$ROOT/agent/agent-rules.md" "$ROOT/.cursor/rules/agent-rules.md"
-cp "$ROOT/agent/agent-rules.md" "$ROOT/.github/copilot-instructions.md"
+cp "$SHIM" "$ROOT/AGENTS.md"
+cp "$SHIM" "$ROOT/CLAUDE.md"
+cp "$SHIM" "$ROOT/.codex/AGENTS.md"
+cp "$SHIM" "$ROOT/.cursor/rules/agent-rules.md"
+cp "$SHIM" "$ROOT/.github/copilot-instructions.md"
 
-echo "Synced agent rules from agent/ into local agent config files."
+echo "Synced generated tool instruction shims from agent/ into local agent config files."
 ```
 
-Practical note: if multiple tools use different formats, keep `agent/agent-rules.md` as the canonical file and generate tool-specific versions from it. Do not manually maintain five divergent instruction files.
+Practical note: if multiple tools need small format differences, keep `agent/tool-instruction-template.md` as the shared shim and generate tool-specific versions from it. Do not manually maintain five divergent instruction files.
 
 ### `agent/scripts/entropy-hotspots.sh`
 
@@ -567,6 +654,130 @@ git log --format=format: --name-only --since="$SINCE" \
 ```
 
 Start with churn. Add complexity tooling later only if the churn list is too noisy.
+
+### `scripts/check-tests-unchanged.sh`
+
+Purpose: detect whether the test suite changed since the last approved test manifest.
+
+This does not make tests impossible to edit. It makes test changes explicit, deterministic, and easy to review. The check compares files under `tests/` against a committed SHA-256 manifest at `tests/.manifest.sha256`.
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+TESTS_DIR="${ROOT_DIR}/tests"
+MANIFEST="${TESTS_DIR}/.manifest.sha256"
+
+fail() {
+  printf "ERROR: %s\n" "$*" >&2
+  exit 1
+}
+
+if [[ ! -d "${TESTS_DIR}" ]]; then
+  printf "check-tests: no tests/ directory (skipping)\n"
+  exit 0
+fi
+
+if [[ ! -f "${MANIFEST}" ]]; then
+  fail "check-tests: missing ${MANIFEST}. Run scripts/update-test-manifest.sh to create it."
+fi
+
+if command -v sha256sum >/dev/null 2>&1; then
+  SHA="sha256sum"
+elif command -v shasum >/dev/null 2>&1; then
+  SHA="shasum -a 256"
+else
+  fail "check-tests: need sha256sum or shasum."
+fi
+
+tmp="$(mktemp)"
+trap 'rm -f "$tmp"' EXIT
+
+(
+  cd "${TESTS_DIR}"
+  find . -type f -print0 \
+    | LC_ALL=C sort -z \
+    | while IFS= read -r -d '' p; do
+        [[ "$p" == "./.manifest.sha256" ]] && continue
+        rel="${p#./}"
+        ${SHA} "$rel"
+      done
+) >"$tmp"
+
+normalize() {
+  awk '{print $1" "$2}' "$1"
+}
+
+if ! diff -u <(normalize "${MANIFEST}") <(normalize "$tmp") >/dev/null; then
+  fail "check-tests: tests/ contents differ from manifest. If intentional, run scripts/update-test-manifest.sh and commit the updated manifest."
+fi
+
+printf "check-tests: OK (manifest matches)\n"
+```
+
+Pair it with `scripts/update-test-manifest.sh`, which is only run when a test change is intentional:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+TESTS_DIR="${ROOT_DIR}/tests"
+MANIFEST="${TESTS_DIR}/.manifest.sha256"
+
+fail() {
+  printf "ERROR: %s\n" "$*" >&2
+  exit 1
+}
+
+mkdir -p "${TESTS_DIR}"
+
+if command -v sha256sum >/dev/null 2>&1; then
+  SHA="sha256sum"
+elif command -v shasum >/dev/null 2>&1; then
+  SHA="shasum -a 256"
+else
+  fail "update-manifest: need sha256sum or shasum."
+fi
+
+tmp="$(mktemp)"
+trap 'rm -f "$tmp"' EXIT
+
+(
+  cd "${TESTS_DIR}"
+  find . -type f -print0 \
+    | LC_ALL=C sort -z \
+    | while IFS= read -r -d '' p; do
+        [[ "$p" == "./.manifest.sha256" ]] && continue
+        rel="${p#./}"
+        ${SHA} "$rel"
+      done
+) >"$tmp"
+
+mv "$tmp" "${MANIFEST}"
+printf "Wrote %s\n" "${MANIFEST}"
+```
+
+Expose all deterministic checks through one manual command:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+"${ROOT_DIR}/scripts/check-md.sh"
+"${ROOT_DIR}/scripts/check-tests-unchanged.sh"
+
+printf "OK\n"
+```
+
+Run this command whenever you want assurance that the repo still satisfies the deterministic checks:
+
+```bash
+./scripts/check.sh
+```
 
 ## Step 7: Enforce Boundaries With Tooling
 
@@ -756,51 +967,78 @@ The most important review question is: "Will the next agent need less context or
 
 ## Practical Rollout Plan
 
-Do this in order.
+Do this in order. Each phase should leave behind a repo-owned artifact, a deterministic command, or both. The point is to turn agent behavior into a repeatable engineering system instead of a collection of good prompts.
 
 ### Day 0: Bootstrap
 
-1. Create the `agent/` directory and instruction files.
-2. Add `agent-rules.md`, `project-brief.md`, `design-tree.md`, `architecture.md`, `testing-policy.md`, and `ubiquitous-language.md`.
-3. Add the four skills: `grilling-design`, `testing-vertical-slices`, `improving-architecture`, and `tracking-entropy`.
-4. Add `agent-doctor.sh`, `sync-agent-env.sh`, and `entropy-hotspots.sh`.
-5. Add standard commands for format, lint, typecheck, test, check, dev, and build.
+Goal: create the control plane before asking agents to build features.
+
+1. Create `agent/` with the canonical files listed in Step 1. Keep each file short enough that an agent can load it at the start of work.
+2. Fill `agent/project-brief.md` with the product goal, primary workflows, non-goals, external systems, and definition of done. Do not start implementation until the primary workflows are named.
+3. Create `agent/ubiquitous-language.md` as a table of `Business Term | Technical Symbol | Definition | Constraints`. Pull the first terms from `Plan.md`: design concept, design tree, bounded context, ubiquitous language, feedback loop, entropy hotspot, vertical slice, adapter, seam, and ADR.
+4. Create `agent/design-tree.md` with three sections: `Open Decisions`, `Settled Decisions`, and `Pressure Points`. The first version can be rough, but it must name the choices that are still uncertain.
+5. Run the `grill-me` pre-flight review from `Plan.md` before creating architecture rules. In this repo, implement that as the `grilling-design` skill or a `grill-me` alias that loads `agent/skills/grilling-design/SKILL.md`.
+6. During `grill-me`, make the agent critique the proposed design for reliability, context management, security, and scalability. Require short answers to: "What is unclear?", "What will agents likely misunderstand?", "What test proves the first behavior?", and "What decision must be recorded now?"
+7. Update `agent/design-tree.md` and `agent/ubiquitous-language.md` based on the grilling output. The review is not complete until the repo files change or the agent states that no change is needed and why.
+8. Add `agent-rules.md`, `tool-instruction-template.md`, `architecture.md`, and `testing-policy.md`. These files should tell agents what to read, which bounded context they may touch, when tests may change, and which checks must run.
+9. Add the four skills: `grilling-design`, `testing-vertical-slices`, `improving-architecture`, and `tracking-entropy`. Each skill should include trigger conditions, required inputs, required output, and which repo files it may update.
+10. Add `agent-doctor.sh`, `sync-agent-env.sh`, `entropy-hotspots.sh`, `scripts/check.sh`, `scripts/check-md.sh`, `scripts/check-tests-unchanged.sh`, and `scripts/update-test-manifest.sh`.
+11. Run `agent/scripts/agent-doctor.sh` and `./scripts/check.sh`. Fix missing files before starting feature work.
 
 ### Week 1: Make Feedback Deterministic
 
-1. Turn on strict typechecking as far as the current codebase allows.
-2. Make `check` run locally and in CI.
-3. Add import-boundary rules for the most important bounded contexts.
-4. Add one E2E smoke test for the most valuable user workflow.
-5. Make agents report exactly which checks passed and which were skipped.
+Goal: make every agent change pass through the same local checks.
+
+1. Choose the project commands and write them into `agent/testing-policy.md`: `format`, `lint`, `typecheck`, `unit test`, `integration test`, `e2e smoke`, and `check`. If a command does not exist yet, write `not available yet` and the reason.
+2. Make `./scripts/check.sh` the manual one-command gate. It should call Markdown checks, test-manifest checks, and any project-specific commands that exist.
+3. Add `tests/.manifest.sha256` by running `./scripts/update-test-manifest.sh`. From this point forward, `./scripts/check-tests-unchanged.sh` tells you whether tests changed since the last approved manifest.
+4. Define the test-change rule in `agent/testing-policy.md`: existing tests must not be weakened during implementation; intentional test changes require a matching manifest update and a short explanation in the final response.
+5. Turn on strict typechecking as far as the current codebase allows. If strict mode creates too much noise, document the relaxed rule and the plan to tighten it.
+6. Add import-boundary rules for the highest-value bounded contexts first. Start with one or two forbidden imports that catch real mistakes rather than a large policy that nobody understands.
+7. Add one E2E smoke test for the most important workflow. Keep it thin: it should prove the app starts and the primary path works, not exhaustively test every variant.
+8. Update `agent/agent-rules.md` so every agent final response includes checks passed, checks skipped, and whether tests were changed.
+9. Run `./scripts/check.sh` manually before and after feature work. This replaces continuous watching; you decide when you want assurance.
 
 ### Week 2: Improve Agent Memory
 
-1. Fill the ubiquitous language with real product terms.
-2. Add ADRs for existing decisions that repeatedly confuse agents.
-3. Move long explanations out of prompts and into repo files.
-4. Run `sync-agent-env.sh` for each agent tool used by the team.
-5. Stop using one-off prompt paragraphs for rules that should live in the repo.
+Goal: move repeated explanations out of chat and into files agents can read.
+
+1. Review the last few feature discussions, bug reports, or design notes. Extract repeated domain terms into `agent/ubiquitous-language.md`.
+2. Use `grilling-design` whenever a term is ambiguous. The skill should ask whether the term belongs to the business domain, technical implementation, UI copy, or external-system vocabulary.
+3. Add ADRs for decisions that repeatedly confuse agents: bounded context ownership, persistence shape, adapter boundaries, test strategy, and naming conventions.
+4. Move long prompt paragraphs into `agent/` files. A good rule: if you paste the same instruction twice, it belongs in the repo.
+5. Run `agent/scripts/sync-agent-env.sh` so `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/agent-rules.md`, `.github/copilot-instructions.md`, and `.codex/AGENTS.md` are generated from the same source.
+6. Run `agent-doctor.sh` after syncing. It should fail if a canonical file is missing or if a generated shim is stale.
+7. Update `agent/skills/*/SKILL.md` when a repeated workflow appears. Keep each skill focused: one trigger, one process, one expected output.
 
 ### Week 3: Reduce Entropy
 
-1. Run `entropy-hotspots.sh`.
-2. Pick one high-churn file.
-3. Use `improving-architecture` to identify the hidden domain concepts.
-4. Extract or deepen one module boundary.
-5. Add tests around the new boundary.
-6. Record the decision in an ADR if it changes how future features should be built.
+Goal: use agents to make the codebase easier to change, not just larger.
+
+1. Run `agent/scripts/entropy-hotspots.sh` and pick one file or module with high churn. Do not start with the worst file if it is too broad; choose the smallest hotspot that affects current work.
+2. Run the `tracking-entropy` skill. Required output: why the file changes often, which concepts are mixed together, what tests currently protect it, and what change would reduce future context needs.
+3. Run `improving-architecture` on the chosen hotspot. Ask it to identify shallow modules, hidden domain concepts, unclear ownership, and imports that cross boundaries.
+4. Choose one small refactor: extract a domain concept, move adapter code behind an interface, shrink a public API, or merge shallow pass-through modules.
+5. Before refactoring, run `testing-vertical-slices` to identify the smallest behavior test that protects the boundary. Add or identify that test before implementation.
+6. Make the refactor in one vertical slice. Avoid broad cleanup unless it directly supports the new boundary.
+7. Run targeted tests first, then `./scripts/check.sh`.
+8. Record the decision in an ADR if future agents need to preserve the boundary. Update `agent/architecture.md` if imports or ownership changed.
 
 ### Ongoing: Per Feature
 
-1. Write a feature brief.
-2. Run `grilling-design` for non-trivial work.
-3. Define types and interfaces first.
-4. Write the smallest useful test.
-5. Implement one vertical slice.
-6. Run deterministic checks.
-7. Update glossary, design tree, architecture notes, or ADRs.
-8. Review for coupling and entropy.
+Goal: make every feature follow the same generate-check-fix loop.
+
+1. Write a feature brief with `Feature`, `Domain Language`, `Bounded Context`, `Expected Behavior`, and `Checks`.
+2. Load the relevant canonical files: `project-brief.md`, `design-tree.md`, `architecture.md`, `ubiquitous-language.md`, `testing-policy.md`, and `agent-rules.md`.
+3. Run `grilling-design` for non-trivial work, ambiguous bug fixes, architecture changes, cross-context changes, or security-sensitive changes. For tiny changes, write the five-bullet version: chosen design, rejected alternative, main risk, public interface, and test strategy.
+4. Run `testing-vertical-slices` before implementation. It should choose the narrowest useful test level: unit for pure rules, integration for adapters or persistence, E2E smoke for user workflows, and property-based tests for invariants.
+5. Define types, interfaces, and public boundaries first. Use names from `agent/ubiquitous-language.md`; add new terms before using them widely.
+6. Write or identify the smallest useful test. If the test suite must change, run `./scripts/update-test-manifest.sh` after the intentional edit and explain why the manifest changed.
+7. Implement one vertical slice. Keep external systems behind adapters and avoid importing another bounded context's internals.
+8. Run the narrowest check first, then broader checks, then `./scripts/check.sh`.
+9. If checks fail, repair from actual tool output. Do not weaken tests unless the feature brief explicitly says the expected behavior changed.
+10. Close the loop by updating `ubiquitous-language.md`, `design-tree.md`, `architecture.md`, or an ADR when the change creates durable knowledge.
+11. Final response must state: what changed, which skill was used, which checks ran, whether tests changed, and whether the manifest changed.
 
 ## What To Avoid
 
