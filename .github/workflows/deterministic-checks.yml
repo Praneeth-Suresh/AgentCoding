@@ -1,0 +1,22 @@
+name: Deterministic Checks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run deterministic checks
+        run: ./scripts/check.sh
+
+      - name: Run agent doctor
+        run: ./agent/scripts/agent-doctor.sh
+

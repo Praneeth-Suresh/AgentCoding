@@ -1,0 +1,49 @@
+{
+  "required": [
+    {
+      "name": "filesystem",
+      "purpose": "Read and edit repository files with explicit workspace limits",
+      "access": "read-write",
+      "notes": "Limit scope to repository root"
+    },
+    {
+      "name": "git",
+      "purpose": "Inspect diffs, history, branches, and changed files",
+      "access": "read-only"
+    },
+    {
+      "name": "fetch",
+      "purpose": "Fetch external documentation as markdown when current docs are required",
+      "access": "read-only"
+    },
+    {
+      "name": "browser",
+      "purpose": "Run UI smoke checks where applicable",
+      "access": "read-only"
+    }
+  ],
+  "optional": [
+    {
+      "name": "database-readonly",
+      "purpose": "Inspect schemas and safe sample data without mutation",
+      "access": "read-only"
+    },
+    {
+      "name": "logs-readonly",
+      "purpose": "Read production errors from observability systems",
+      "access": "read-only"
+    },
+    {
+      "name": "docs-search",
+      "purpose": "Search internal docs, runbooks, ADRs, and product specs",
+      "access": "read-only"
+    }
+  ],
+  "human_approval_required_for": [
+    "database migrations",
+    "destructive shell commands",
+    "production writes",
+    "dependency upgrades"
+  ]
+}
+

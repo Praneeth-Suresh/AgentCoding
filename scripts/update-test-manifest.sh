@@ -20,6 +20,12 @@ else
   fail "update-manifest: need sha256sum or shasum."
 fi
 
+hash_only() {
+  local out
+  out="$(${SHA} "$1")"
+  printf "%s" "${out%% *}"
+}
+
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
 
@@ -30,10 +36,9 @@ trap 'rm -f "$tmp"' EXIT
     | while IFS= read -r -d '' p; do
         [[ "$p" == "./.manifest.sha256" ]] && continue
         rel="${p#./}"
-        ${SHA} "$rel"
+        printf "%s  %s\n" "$(hash_only "$rel")" "$rel"
       done
 ) >"$tmp"
 
 mv "$tmp" "${MANIFEST}"
 printf "Wrote %s\n" "${MANIFEST}"
-

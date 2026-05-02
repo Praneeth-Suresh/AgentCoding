@@ -6,6 +6,12 @@ Single entrypoint:
 ./scripts/check.sh
 ```
 
+`check.sh` runs:
+
+1. `check-md.sh`
+2. `check-tests-unchanged.sh`
+3. `check-project.sh` (project-specific extension point)
+
 ## Test Immutability (Detection)
 
 This repo uses a committed SHA-256 manifest at `tests/.manifest.sha256`.
@@ -18,6 +24,8 @@ This repo uses a committed SHA-256 manifest at `tests/.manifest.sha256`.
 ```
 
 Commit both the test changes and the updated manifest together.
+
+This mechanism provides deterministic detection of test changes. It does not create absolute immutability against privileged repository writes.
 
 ## Run On Every Commit (Optional)
 

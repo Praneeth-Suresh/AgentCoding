@@ -28,6 +28,12 @@ else
   fail "check-tests: need sha256sum or shasum."
 fi
 
+hash_only() {
+  local out
+  out="$(${SHA} "$1")"
+  printf "%s" "${out%% *}"
+}
+
 # Ensure the manifest matches the current contents of tests/.
 # This doesn't prevent edits; it detects them deterministically.
 tmp="$(mktemp)"
@@ -43,14 +49,14 @@ trap 'rm -f "$tmp"' EXIT
         [[ "$p" == "./.manifest.sha256" ]] && continue
         # Strip leading ./ for prettier manifest lines
         rel="${p#./}"
-        ${SHA} "$rel"
+        printf "%s  %s\n" "$(hash_only "$rel")" "$rel"
       done
 ) >"$tmp"
 
 # Normalize both sides for robust comparison (sha tool output formats differ).
 normalize() {
-  # Output: "<hash> <path>"
-  awk '{print $1" "$2}' "$1"
+  # Output: "<hash>  <path>", preserving spaces in paths.
+  awk '{h=$1; $1=""; sub(/^ +/, ""); print h"  "$0}' "$1"
 }
 
 if ! diff -u <(normalize "${MANIFEST}") <(normalize "$tmp") >/dev/null; then
@@ -58,4 +64,3 @@ if ! diff -u <(normalize "${MANIFEST}") <(normalize "$tmp") >/dev/null; then
 fi
 
 printf "check-tests: OK (manifest matches)\n"
-
