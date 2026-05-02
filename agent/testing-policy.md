@@ -5,7 +5,7 @@
 | Check | Command | Status | Notes |
 | --- | --- | --- | --- |
 | Markdown sanity | `./scripts/check-md.sh` | available | Unclosed fences and tabs |
-| Test manifest immutability check | `./scripts/check-tests-unchanged.sh` | available | Detects all test-file changes |
+| Test manifest immutability check | `./scripts/check-tests-unchanged.sh` | available | Detects changes in configured test scope from `agent/test-manifest.conf` |
 | Aggregate deterministic gate | `./scripts/check.sh` | available | Runs all deterministic checks |
 | Format | `not available yet` | unavailable | No formatter configured yet |
 | Lint | `not available yet` | unavailable | No linter configured yet |
@@ -32,6 +32,7 @@ Intentional test changes are allowed only when all conditions are met:
 2. `./scripts/update-test-manifest.sh` is run after the intentional change.
 3. The manifest update is committed with the test change.
 4. The final response explains why tests changed.
+5. `agent/test-manifest.conf` is updated if new test locations/patterns are introduced.
 
 ## Immutability Enforcement Scope
 
@@ -42,4 +43,3 @@ Intentional test changes are allowed only when all conditions are met:
 
 - Mock external systems (network, clocks, randomness, payment/email providers).
 - Do not mock domain logic in the same bounded context.
-

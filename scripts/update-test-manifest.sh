@@ -2,43 +2,19 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TESTS_DIR="${ROOT_DIR}/tests"
-MANIFEST="${TESTS_DIR}/.manifest.sha256"
+source "${ROOT_DIR}/scripts/test-manifest-lib.sh"
+tm_load_manifest_config "${ROOT_DIR}"
+tm_detect_hash_cmd
 
-fail() {
-  printf "ERROR: %s\n" "$*" >&2
-  exit 1
-}
-
-mkdir -p "${TESTS_DIR}"
-
-if command -v sha256sum >/dev/null 2>&1; then
-  SHA="sha256sum"
-elif command -v shasum >/dev/null 2>&1; then
-  SHA="shasum -a 256"
-else
-  fail "update-manifest: need sha256sum or shasum."
-fi
-
-hash_only() {
-  local out
-  out="$(${SHA} "$1")"
-  printf "%s" "${out%% *}"
-}
+mkdir -p "$(dirname "${TM_MANIFEST_ABS}")"
 
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
 
-(
-  cd "${TESTS_DIR}"
-  find . -type f -print0 \
-    | LC_ALL=C sort -z \
-    | while IFS= read -r -d '' p; do
-        [[ "$p" == "./.manifest.sha256" ]] && continue
-        rel="${p#./}"
-        printf "%s  %s\n" "$(hash_only "$rel")" "$rel"
-      done
-) >"$tmp"
+while IFS= read -r rel; do
+  [[ -z "${rel}" ]] && continue
+  printf "%s  %s\n" "$(tm_hash_only "${ROOT_DIR}/${rel}")" "${rel}"
+done < <(tm_collect_manifest_files "${ROOT_DIR}") >"$tmp"
 
-mv "$tmp" "${MANIFEST}"
-printf "Wrote %s\n" "${MANIFEST}"
+mv "$tmp" "${TM_MANIFEST_ABS}"
+printf "Wrote %s\n" "${TM_MANIFEST_REL}"

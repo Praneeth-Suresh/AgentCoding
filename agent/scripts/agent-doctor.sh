@@ -31,8 +31,10 @@ required_canonical=(
   "${ROOT_DIR}/agent/security-policy.md"
   "${ROOT_DIR}/agent/agent-rules.md"
   "${ROOT_DIR}/agent/tool-instruction-template.md"
+  "${ROOT_DIR}/agent/test-manifest.conf"
   "${ROOT_DIR}/agent/mcp.json"
-  "${ROOT_DIR}/agent/skills/grilling-design/SKILL.md"
+  "${ROOT_DIR}/agent/skills/grill-me/SKILL.md"
+  "${ROOT_DIR}/agent/skills/grill-me/SKILL.md"
   "${ROOT_DIR}/agent/skills/testing-vertical-slices/SKILL.md"
   "${ROOT_DIR}/agent/skills/improving-architecture/SKILL.md"
   "${ROOT_DIR}/agent/skills/tracking-entropy/SKILL.md"
@@ -57,6 +59,10 @@ for file in "${required_exec[@]}"; do
   check_exec "${file}"
 done
 
+check_file "${ROOT_DIR}/scripts/test-manifest-lib.sh"
+source "${ROOT_DIR}/scripts/test-manifest-lib.sh"
+tm_load_manifest_config "${ROOT_DIR}"
+
 command -v git >/dev/null 2>&1 || fail "git is not available on PATH"
 
 if [[ -e "${ROOT_DIR}/.codex" && ! -d "${ROOT_DIR}/.codex" ]]; then
@@ -78,11 +84,10 @@ for target in "${shim_targets[@]}"; do
   fi
 done
 
-if [[ -d "${ROOT_DIR}/tests" && ! -f "${ROOT_DIR}/tests/.manifest.sha256" ]]; then
-  fail "tests/.manifest.sha256 is missing. Run scripts/update-test-manifest.sh"
+if [[ ! -f "${TM_MANIFEST_ABS}" ]]; then
+  fail "${TM_MANIFEST_REL} is missing. Run scripts/update-test-manifest.sh"
 fi
 
 printf "Agent instruction files present.\n"
 printf "Generated shims synchronized.\n"
 printf "Deterministic check scripts available.\n"
-

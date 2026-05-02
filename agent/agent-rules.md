@@ -4,7 +4,7 @@
 
 1. Read the minimum relevant canonical files in `agent/`.
 2. Identify the bounded context and intended public interface.
-3. For non-trivial or ambiguous work, run `grilling-design`.
+3. For non-trivial or ambiguous work, run `grill-me` (the `grill-me` review alias).
 4. Choose the smallest deterministic check that can prove behavior.
 
 ## While Coding
@@ -32,4 +32,3 @@ Final response must include:
 - Whether tests changed.
 - Whether `tests/.manifest.sha256` changed.
 - Which skill(s) were used.
-

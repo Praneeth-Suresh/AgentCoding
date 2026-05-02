@@ -10,37 +10,77 @@ Select and enforce the smallest useful behavior test before implementation.
 - Bug fixes with behavior impact
 - Refactors that risk boundary behavior
 
-## Required Inputs
+## Input Contract (required)
 
-1. Behavior to prove (domain language).
-2. Bounded context.
-3. Existing tests (if any).
-4. Risky edge case.
+```yaml
+skill: testing-vertical-slices
+behavior: "<domain behavior to prove>"
+bounded_context: "<single context name>"
+existing_tests:
+  - "<path or none>"
+edge_case: "<most likely failure mode>"
+```
 
 ## Process
 
-1. Define behavior in domain terms.
+1. Define behavior in domain language.
 2. Choose minimal useful test level:
    - Unit for pure rules
    - Integration for adapter/persistence behavior
-   - E2E smoke for critical user workflow
+   - E2E smoke for critical workflow
    - Property-based for invariants
 3. Write or identify failing test/check first.
 4. Implement only enough to pass.
-5. Refactor after green.
-6. Add one edge-case test.
+5. Add one edge-case test.
 
-## Required Output
+## Output Template (required)
 
-- Chosen test level and reason
-- Behavior under test
-- Edge case targeted
-- Narrow command(s) to run first
-- Broader command(s) to run after
+```yaml
+skill: testing-vertical-slices
+status: success
+chosen_test_level: "<unit|integration|e2e-smoke|property>"
+selection_reason: "<why this is minimal and sufficient>"
+behavior_under_test: "<single behavior statement>"
+edge_case_targeted: "<edge case>"
+narrow_checks_first:
+  - "<command>"
+broader_checks_after:
+  - "<command>"
+test_files_expected_to_change:
+  - "<path or none>"
+manifest_update_required: true
+notes: "<short rationale>"
+```
+
+## Success Criteria
+
+- Output uses the exact template keys.
+- Test level is one of the allowed enum values.
+- Narrow and broader commands are executable.
+- `manifest_update_required` is accurate when test files change.
+
+## Refusal / Abort Conditions
+
+Return this template when aborting:
+
+```yaml
+skill: testing-vertical-slices
+status: abort
+reason_code: "<behavior-unclear|bounded-context-missing|no-test-surface>"
+missing_or_blocked:
+  - "<item>"
+required_user_input: "<single next clarification>"
+```
+
+Abort if:
+
+- Behavior is not specific enough to test.
+- Bounded context is not identified.
+- No deterministic test/check surface exists and no allowed path to add one is provided.
 
 ## File Update Permissions
 
-- May update: test files and related test fixtures
-- Must update `tests/.manifest.sha256` with `./scripts/update-test-manifest.sh` when test files change intentionally
-- Must not weaken existing assertions without explicit behavior change rationale
+- May update: test files and test fixtures
+- Must update manifest with `./scripts/update-test-manifest.sh` when test files change intentionally
+- Must not weaken existing assertions without explicit behavior-change rationale
 

@@ -32,7 +32,7 @@ Skills live in `agent/skills/<skill-name>/SKILL.md`.
 
 Default triggers:
 
-- `grilling-design`: non-trivial feature, architecture change, cross-context change, ambiguous bug fix.
+- `grill-me`: non-trivial feature, architecture change, cross-context change, ambiguous bug fix.
 - `testing-vertical-slices`: feature/bug behavior implementation.
 - `improving-architecture`: shallow modules, unclear boundaries, recurring coupling.
 - `tracking-entropy`: maintainability review, hotspots, refactoring priority.

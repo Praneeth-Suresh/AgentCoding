@@ -14,9 +14,13 @@ Single entrypoint:
 
 ## Test Immutability (Detection)
 
-This repo uses a committed SHA-256 manifest at `tests/.manifest.sha256`.
+This repo uses a committed SHA-256 manifest over a configurable test scope.
 
-- `./scripts/check-tests-unchanged.sh` fails if anything under `tests/` differs from the manifest.
+- Scope is configured in `agent/test-manifest.conf` via:
+  - `MANIFEST_PATH`
+  - `INCLUDE_GLOBS`
+  - `EXCLUDE_GLOBS`
+- `./scripts/check-tests-unchanged.sh` fails if any file in the configured scope differs from the manifest.
 - If a test change is intentional, update the manifest:
 
 ```bash

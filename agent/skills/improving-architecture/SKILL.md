@@ -8,33 +8,79 @@ Reduce coupling and context sprawl by improving module boundaries.
 
 - A feature touches too many unrelated files
 - Ownership or module boundaries are unclear
-- Repeated illegal/fragile cross-context imports
-- "Shallow module" behavior (pass-through layers with no encapsulation)
+- Repeated illegal or fragile cross-context imports
+- Shallow pass-through modules
 
-## Required Inputs
+## Input Contract (required)
 
-1. Friction point description.
-2. Current module/context boundaries.
-3. Imports and public API touchpoints.
-4. Existing tests guarding the area.
+```yaml
+skill: improving-architecture
+friction_point: "<what is hard to change and why>"
+bounded_context: "<primary context>"
+current_boundary: "<current public interface summary>"
+imports_or_dependencies:
+  - "<path or dependency>"
+existing_boundary_tests:
+  - "<path or none>"
+```
 
 ## Process
 
-1. Identify friction and hidden domain concept.
-2. Find shallow modules and pass-through APIs.
-3. Propose smaller public boundary.
-4. Move internals behind boundary.
+1. Identify hidden domain concept at the friction point.
+2. Detect shallow modules and pass-through APIs.
+3. Propose a smaller, clearer public boundary.
+4. Move details behind that boundary.
 5. Add or update boundary-protecting tests.
-6. Record durable design choice in ADR if needed.
+6. Record durable decision in ADR when needed.
 
-## Required Output
+## Output Template (required)
 
-- Current problem
-- Proposed boundary
-- Public API after change
-- Internal files behind the API
-- Tests that protect the boundary
-- ADR needed? (yes/no and why)
+```yaml
+skill: improving-architecture
+status: success
+current_problem: "<problem statement>"
+proposed_boundary: "<new boundary statement>"
+public_api_after_change:
+  - "<exported function/type>"
+internal_files_hidden_behind_boundary:
+  - "<path>"
+boundary_tests:
+  add_or_update:
+    - "<path>"
+adr_required: false
+adr_reason: "<why yes/no>"
+narrow_checks_first:
+  - "<command>"
+broader_checks_after:
+  - "<command>"
+notes: "<short rationale>"
+```
+
+## Success Criteria
+
+- Output uses the exact template keys.
+- Public API is explicitly smaller or clearer than before.
+- Boundary tests are identified.
+- ADR decision is explicit with reason.
+
+## Refusal / Abort Conditions
+
+Return this template when aborting:
+
+```yaml
+skill: improving-architecture
+status: abort
+reason_code: "<ownership-unclear|boundary-not-identifiable|unsafe-refactor-scope>"
+missing_or_blocked:
+  - "<item>"
+required_user_input: "<single next clarification>"
+```
+
+Abort if:
+
+- Ownership is unclear across contexts.
+- No coherent boundary can be identified from current code.
+- Requested refactor scope is too broad for one vertical slice and cannot be split safely.
 
 ## File Update Permissions
 

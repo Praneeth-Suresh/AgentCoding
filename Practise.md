@@ -38,7 +38,7 @@ agent/
   tool-instruction-template.md
   mcp.json
   skills/
-    grilling-design/
+    grill-me/
       SKILL.md
     testing-vertical-slices/
       SKILL.md
@@ -111,7 +111,7 @@ Skills live under `agent/skills/<skill-name>/SKILL.md`. Use a skill when its nam
 
 Default triggers:
 
-- Use `grilling-design` before non-trivial features, architecture changes, cross-context changes, or ambiguous bug fixes.
+- Use `grill-me` before non-trivial features, architecture changes, cross-context changes, or ambiguous bug fixes.
 - Use `testing-vertical-slices` for feature work and bug fixes that need behavior verification.
 - Use `improving-architecture` when a change exposes shallow modules, unclear ownership, repeated coupling, or hard-to-test structure.
 - Use `tracking-entropy` when asked to assess maintainability, hotspots, churn, complexity, or refactoring priority.
@@ -358,7 +358,7 @@ Recommended rules:
 - Read `agent/project-brief.md`, `agent/design-tree.md`, `agent/architecture.md`, and `agent/ubiquitous-language.md`.
 - Identify the bounded context being changed.
 - State the intended public interface.
-- Run the `grilling-design` skill for non-trivial changes.
+- Run the `grill-me` skill for non-trivial changes.
 
 ## While Coding
 
@@ -380,9 +380,9 @@ Recommended rules:
 
 Skills should be small, named by capability, and loaded only when relevant. Do not make one giant "coding" skill.
 
-### Skill 1: `grilling-design`
+### Skill 1: `grill-me`
 
-Create `agent/skills/grilling-design/SKILL.md`.
+Create `agent/skills/grill-me/SKILL.md`.
 
 ```md
 # Grilling Design
@@ -841,7 +841,7 @@ The human or lead agent writes a small feature brief:
 
 ### 2. Pre-flight Design Review
 
-Run the `grilling-design` skill.
+Run the `grill-me` skill.
 
 Required output:
 
@@ -977,11 +977,11 @@ Goal: create the control plane before asking agents to build features.
 2. Fill `agent/project-brief.md` with the product goal, primary workflows, non-goals, external systems, and definition of done. Do not start implementation until the primary workflows are named.
 3. Create `agent/ubiquitous-language.md` as a table of `Business Term | Technical Symbol | Definition | Constraints`. Pull the first terms from `Plan.md`: design concept, design tree, bounded context, ubiquitous language, feedback loop, entropy hotspot, vertical slice, adapter, seam, and ADR.
 4. Create `agent/design-tree.md` with three sections: `Open Decisions`, `Settled Decisions`, and `Pressure Points`. The first version can be rough, but it must name the choices that are still uncertain.
-5. Run the `grill-me` pre-flight review from `Plan.md` before creating architecture rules. In this repo, implement that as the `grilling-design` skill or a `grill-me` alias that loads `agent/skills/grilling-design/SKILL.md`.
+5. Run the `grill-me` pre-flight review from `Plan.md` before creating architecture rules. In this repo, implement that as the `grill-me` skill or a `grill-me` alias that loads `agent/skills/grill-me/SKILL.md`.
 6. During `grill-me`, make the agent critique the proposed design for reliability, context management, security, and scalability. Require short answers to: "What is unclear?", "What will agents likely misunderstand?", "What test proves the first behavior?", and "What decision must be recorded now?"
 7. Update `agent/design-tree.md` and `agent/ubiquitous-language.md` based on the grilling output. The review is not complete until the repo files change or the agent states that no change is needed and why.
 8. Add `agent-rules.md`, `tool-instruction-template.md`, `architecture.md`, and `testing-policy.md`. These files should tell agents what to read, which bounded context they may touch, when tests may change, and which checks must run.
-9. Add the four skills: `grilling-design`, `testing-vertical-slices`, `improving-architecture`, and `tracking-entropy`. Each skill should include trigger conditions, required inputs, required output, and which repo files it may update.
+9. Add the four skills: `grill-me`, `testing-vertical-slices`, `improving-architecture`, and `tracking-entropy`. Each skill should include trigger conditions, required inputs, required output, and which repo files it may update.
 10. Add `agent-doctor.sh`, `sync-agent-env.sh`, `entropy-hotspots.sh`, `scripts/check.sh`, `scripts/check-md.sh`, `scripts/check-tests-unchanged.sh`, and `scripts/update-test-manifest.sh`.
 11. Run `agent/scripts/agent-doctor.sh` and `./scripts/check.sh`. Fix missing files before starting feature work.
 
@@ -1004,7 +1004,7 @@ Goal: make every agent change pass through the same local checks.
 Goal: move repeated explanations out of chat and into files agents can read.
 
 1. Review the last few feature discussions, bug reports, or design notes. Extract repeated domain terms into `agent/ubiquitous-language.md`.
-2. Use `grilling-design` whenever a term is ambiguous. The skill should ask whether the term belongs to the business domain, technical implementation, UI copy, or external-system vocabulary.
+2. Use `grill-me` whenever a term is ambiguous. The skill should ask whether the term belongs to the business domain, technical implementation, UI copy, or external-system vocabulary.
 3. Add ADRs for decisions that repeatedly confuse agents: bounded context ownership, persistence shape, adapter boundaries, test strategy, and naming conventions.
 4. Move long prompt paragraphs into `agent/` files. A good rule: if you paste the same instruction twice, it belongs in the repo.
 5. Run `agent/scripts/sync-agent-env.sh` so `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/agent-rules.md`, `.github/copilot-instructions.md`, and `.codex/AGENTS.md` are generated from the same source.
@@ -1030,7 +1030,7 @@ Goal: make every feature follow the same generate-check-fix loop.
 
 1. Write a feature brief with `Feature`, `Domain Language`, `Bounded Context`, `Expected Behavior`, and `Checks`.
 2. Load the relevant canonical files: `project-brief.md`, `design-tree.md`, `architecture.md`, `ubiquitous-language.md`, `testing-policy.md`, and `agent-rules.md`.
-3. Run `grilling-design` for non-trivial work, ambiguous bug fixes, architecture changes, cross-context changes, or security-sensitive changes. For tiny changes, write the five-bullet version: chosen design, rejected alternative, main risk, public interface, and test strategy.
+3. Run `grill-me` for non-trivial work, ambiguous bug fixes, architecture changes, cross-context changes, or security-sensitive changes. For tiny changes, write the five-bullet version: chosen design, rejected alternative, main risk, public interface, and test strategy.
 4. Run `testing-vertical-slices` before implementation. It should choose the narrowest useful test level: unit for pure rules, integration for adapters or persistence, E2E smoke for user workflows, and property-based tests for invariants.
 5. Define types, interfaces, and public boundaries first. Use names from `agent/ubiquitous-language.md`; add new terms before using them widely.
 6. Write or identify the smallest useful test. If the test suite must change, run `./scripts/update-test-manifest.sh` after the intentional edit and explain why the manifest changed.

@@ -35,8 +35,20 @@ Then run:
 ./scripts/check.sh
 ```
 
+## Test manifest scope
+
+Configure test immutability detection in `agent/test-manifest.conf`.
+
+- `INCLUDE_GLOBS`: which test files are tracked
+- `EXCLUDE_GLOBS`: ignored paths
+- `MANIFEST_PATH`: where the hash manifest is stored
+
 ## Decision recording rule
 
 - Use `design-tree.md` for evolving or unresolved design choices.
 - Use `agent/adr/` when a decision changes durable architecture, boundaries, terminology, data shape, or test strategy.
 
+## Skill naming alias
+
+- `grill-me` is the shorthand alias.
+- `grill-me` is the canonical skill contract.
