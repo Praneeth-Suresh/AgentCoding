@@ -18,8 +18,9 @@
     },
     {
       "name": "browser",
-      "purpose": "Run UI smoke checks where applicable",
-      "access": "read-only"
+      "purpose": "Use Microsoft Playwright MCP for deterministic web UI and HTML verification",
+      "access": "read-only",
+      "notes": "Codex CLI registration: codex mcp add playwright npx \"@playwright/mcp@latest\""
     }
   ],
   "optional": [
@@ -46,4 +47,3 @@
     "dependency upgrades"
   ]
 }
-

@@ -83,7 +83,7 @@ Standardize on the **Model Context Protocol (MCP)** to provide deterministic too
 
 - **Standard Tools**: Use reference MCP servers for `Filesystem`, `Git`, and `Fetch` (web-to-markdown) to ensure the agent has reliable system access.
 - **Custom Project Evaluators**: Build project-specific MCP servers (using `FastMCP` or MCP SDK) to allow the agent to query the database, check logs (e.g., Sentry), or run specialized simulations.
-- **Browser Automation**: For web apps, provide an MCP server that gives the agent a "headless eye" (e.g., Puppeteer/Playwright) to verify UI changes in real-time.
+- **Browser Automation Standard**: For web apps and HTML/CSS tasks, default to **Microsoft Playwright MCP** for deterministic browser feedback (structured accessibility snapshots and reliable page interaction).
 
 ### Fix 3: Automated Tests
 

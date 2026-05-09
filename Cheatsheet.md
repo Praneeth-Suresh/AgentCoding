@@ -34,6 +34,28 @@ Generate tool-specific instruction shims:
 
 If your repo ignores a generated tool directory such as `.codex/`, either track the needed shim explicitly or adjust `agent/scripts/agent-doctor.sh` so CI does not require ignored local files.
 
+## 0.1 Configure Browser MCP (Web/HTML Work)
+
+For deterministic browser feedback, standardize on **Microsoft Playwright MCP**.
+
+1. Ensure Node.js 18+ is available.
+2. Register Playwright MCP in Codex:
+
+```bash
+codex mcp add playwright npx "@playwright/mcp@latest"
+codex mcp list
+```
+
+3. If you prefer config files, add this to `~/.codex/config.toml` (or project `.codex/config.toml`):
+
+```toml
+[mcp_servers.playwright]
+command = "npx"
+args = ["@playwright/mcp@latest"]
+```
+
+4. For web UI tasks, prompt the agent to verify behavior in Playwright MCP before marking work done.
+
 ## 1. Fill The Minimum Project Facts
 
 Do this before asking an agent to build features.
@@ -427,4 +449,3 @@ If an agent makes a messy change:
 4. If design drift caused the issue, run `grill-me`.
 5. If tests changed unexpectedly, run `./scripts/check-tests-unchanged.sh` and inspect the diff.
 6. If one module is absorbing too much change, run `tracking-entropy` and then `improving-architecture`.
-

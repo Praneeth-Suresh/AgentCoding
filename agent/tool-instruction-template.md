@@ -60,6 +60,12 @@ When using a skill, follow its required inputs/outputs exactly.
 - Do not edit unrelated files.
 - Do not store secrets in repo files, prompts, or logs.
 
+## Browser Verification Rule
+
+- For web app, HTML, or CSS tasks, prefer **Microsoft Playwright MCP** as the browser tool.
+- Use browser state/tool output (for example accessibility snapshots and DOM state) as the source of truth for UI verification.
+- Do not mark browser-related work complete until the behavior is confirmed through Playwright MCP checks.
+
 ## Verification
 
 Run checks required by `agent/testing-policy.md` and local project tooling.
@@ -70,4 +76,3 @@ Final response must include:
 - Checks run.
 - Checks skipped or unavailable.
 - Design files/ADR updates.
-

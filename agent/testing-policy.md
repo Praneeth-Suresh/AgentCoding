@@ -12,7 +12,7 @@
 | Typecheck | `not available yet` | unavailable | No typed code configured yet |
 | Unit tests | `not available yet` | unavailable | No test runner configured yet |
 | Integration tests | `not available yet` | unavailable | No integration harness yet |
-| E2E smoke | `not available yet` | unavailable | No application runtime yet |
+| E2E smoke | `not available yet` | unavailable | When web runtime exists, use Microsoft Playwright MCP for deterministic browser feedback |
 
 ## Default Loop
 
@@ -21,6 +21,7 @@
 3. Implement one vertical slice.
 4. Run narrow checks first, then broader checks.
 5. Repair from actual tool output.
+6. For web UI or HTML/CSS work, include a Playwright MCP browser verification step.
 
 ## Test Modification Rule
 
