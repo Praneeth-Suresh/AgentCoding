@@ -769,6 +769,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 "${ROOT_DIR}/scripts/check-md.sh"
 "${ROOT_DIR}/scripts/check-tests-unchanged.sh"
+"${ROOT_DIR}/scripts/check-project.sh"
 
 printf "OK\n"
 ```
@@ -779,12 +780,68 @@ Run this command whenever you want assurance that the repo still satisfies the d
 ./scripts/check.sh
 ```
 
+### Add Project Formatters And Linters To `check-project.sh`
+
+Do not add another wrapper script for formatting and linting. `./scripts/check.sh` already calls `scripts/check-project.sh`, so `check-project.sh` is the right extension point for project-specific code quality.
+
+The standard order is:
+
+1. Formatter check.
+2. Linter.
+3. Typecheck.
+4. Unit/integration tests.
+
+Use a formatter's non-mutating check mode in `check-project.sh` whenever the tool supports it. Agents may run the mutating formatter after writing code, but the deterministic gate should be able to fail in CI without silently changing files.
+
+Recommended `scripts/check-project.sh` examples:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+npm run format:check
+npm run lint
+npm run typecheck
+npm test
+```
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+ruff format --check .
+ruff check .
+pyright
+pytest
+```
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+test -z "$(gofmt -l .)"
+go vet ./...
+golangci-lint run
+go test ./...
+```
+
+For agent repair loops, also record the mutating formatter command in `agent/testing-policy.md` so agents can run it immediately after code edits:
+
+| Stack | Mutating formatter after edits | Formatter check in `check-project.sh` | Linter |
+| --- | --- | --- | --- |
+| TypeScript/JavaScript | `npm run format` | `npm run format:check` | `npm run lint` |
+| Python | `ruff format .` | `ruff format --check .` | `ruff check .` |
+| Go | `gofmt -w .` | `test -z "$(gofmt -l .)"` | `go vet ./...` and/or `golangci-lint run` |
+
+If a project does not have a formatter or linter yet, `agent/testing-policy.md` must say `not available yet` and explain why. Once code exists, the formatter and linter should be added before relying on agents for larger feature work.
+
 ## Step 7: Enforce Boundaries With Tooling
 
 Use the lightest tool that catches real mistakes.
 
 For TypeScript:
 
+- `prettier` or the framework formatter, with `format` and `format:check` package scripts.
 - `strict: true` in `tsconfig.json`.
 - `eslint-plugin-import` or `dependency-cruiser` to block imports into another context's internals.
 - `eslint` naming rules for banned vague names like `Data`, `Manager`, `Helper`, `Util`, and `Base`.
@@ -792,6 +849,7 @@ For TypeScript:
 
 For Python:
 
+- `ruff format` for formatting.
 - `pyright` or `mypy` in strict mode where practical.
 - `ruff` for linting and import rules.
 - `pytest` for tests.
@@ -800,6 +858,7 @@ For Python:
 
 For Go:
 
+- `gofmt` for formatting.
 - `go test ./...`.
 - `internal/` packages for hidden implementation.
 - `golangci-lint`.
@@ -835,6 +894,7 @@ The human or lead agent writes a small feature brief:
 
 ## Checks
 
+- [Relevant formatter command]
 - [Relevant test command]
 - [Relevant typecheck/lint command]
 ```
@@ -852,6 +912,24 @@ Required output:
 - Test strategy.
 
 For small changes, this can be five bullets. For architectural changes, it should update `agent/design-tree.md` or create an ADR.
+
+#### Optional Sub-Agent Overlay (easy to remove)
+
+Add this block only when sub-agents are available. Remove this block without affecting the base workflow.
+
+Sub-agent: **Design Reviewer** (independent reviewer).
+
+Prompt:
+
+```text
+Review the feature brief and grill-me output before coding.
+Use the Step 10 review checklist only.
+Report only:
+- blocking issues
+- risk level (low/medium/high)
+- one concrete fix per blocker
+If there are no blockers, reply exactly: approved for implementation
+```
 
 ### 3. Type And Interface First
 
@@ -887,19 +965,59 @@ Rules:
 - Do not create generic helpers until two or three real call sites prove the shape.
 - Prefer deep modules with small public APIs.
 
+#### Optional Sub-Agent Escalation For Multi-Context Slices (easy to remove)
+
+Trigger this only when a slice touches multiple bounded contexts, too many files, or has unclear ownership.
+
+Sub-agent: **Architecture Reviewer** (`improving-architecture`).
+
+Prompt:
+
+```text
+Review this slice for boundary drift.
+Identify:
+- hidden domain concept
+- boundary that should be tightened
+- smallest public API change
+- test that protects the boundary
+Return one minimal refactor slice only.
+```
+
 ### 6. Run Generate-Check-Fix
 
 The agent runs:
 
 ```text
-format
+formatter write command
+formatter check
 lint
 typecheck
 targeted test
 broader relevant test
 ```
 
+The mutating formatter command should run immediately after code is written, before linting. Then `./scripts/check.sh` must run so `scripts/check-project.sh` enforces formatter check mode and linting through the same deterministic gate used by hooks and CI.
+
 The agent should paste the failing output back into its reasoning and fix the actual cause. It should not guess from memory when deterministic output is available.
+
+#### Optional Continuous Slice Review (easy to remove)
+
+Sub-agent: **Slice Reviewer** (code review after each slice).
+
+Prompt:
+
+```text
+Review only the current slice diff and the narrow check output.
+Use the Step 10 review checklist.
+Report only blockers and exact fixes.
+Do not suggest optional cleanup or style-only edits.
+If there are no blockers, reply exactly: approved for next slice
+```
+
+Speed guidance:
+
+- Start this review immediately after narrow checks, while broader checks are running.
+- Use this on every medium/high-risk slice; for low-risk slices, run it every second slice.
 
 ### 7. Close The Loop
 
@@ -909,6 +1027,246 @@ Before finishing, update:
 - `agent/design-tree.md` if a design decision moved from open to settled.
 - `agent/architecture.md` if a boundary changed.
 - `agent/adr/` if the change affects future implementation choices.
+
+#### Optional Final Independent Review (easy to remove)
+
+Sub-agent: **Final Reviewer** (independent merge gate).
+
+Prompt:
+
+```text
+Review the full diff before merge using the Step 10 checklist.
+Prioritize boundary integrity, test safety, adapter isolation, and stale instruction files.
+Report only merge blockers and exact fixes.
+If there are no blockers, reply exactly: approved for merge
+```
+
+## Step 8.5: Use Worktrees For Parallel Agent Implementations
+
+Git worktrees let one repository have multiple checked-out working directories that share the same Git object store. For agentic coding, this is useful when one prompt could produce several plausible implementations. Instead of asking one agent to explore everything in one branch, create separate worktrees, send each agent into a different branch, run the same checks, then choose the best implementation from real diffs and tool output.
+
+Use worktrees when:
+
+- A feature has two or three viable designs.
+- A bug fix is ambiguous and the cheapest way to learn is to try competing fixes.
+- A refactor touches an entropy hotspot.
+- `improving-architecture` could produce multiple boundary shapes.
+- A medium/high-risk slice would benefit from an independent implementation attempt before review.
+
+Do not use worktrees for tiny edits where setup and review cost more than the change.
+
+### 1. Prepare The Base
+
+Start from a clean main worktree. Do not create variants from a dirty directory.
+
+```bash
+git fetch origin
+git status --short
+git rev-parse --abbrev-ref HEAD
+```
+
+Pick one base commit or branch, usually `origin/main`:
+
+```bash
+BASE=origin/main
+REPO="$(basename "$(pwd)")"
+WT_ROOT="../${REPO}.worktrees"
+```
+
+Create a sibling directory for worktrees, outside the repository directory:
+
+```bash
+mkdir -p "$WT_ROOT"
+```
+
+Keeping worktrees beside the repo avoids nested repositories, accidental editor search noise, and accidental commits of worktree files.
+
+### 2. Create One Branch Per Attempt
+
+Use a branch naming pattern that makes purpose and variant obvious:
+
+```text
+agents/<task-slug>-a
+agents/<task-slug>-b
+agents/<task-slug>-c
+```
+
+Create the branches and worktrees:
+
+```bash
+git worktree add -b agents/<task-slug>-a "$WT_ROOT/<task-slug>-a" "$BASE"
+git worktree add -b agents/<task-slug>-b "$WT_ROOT/<task-slug>-b" "$BASE"
+git worktree add -b agents/<task-slug>-c "$WT_ROOT/<task-slug>-c" "$BASE"
+```
+
+For an existing remote branch:
+
+```bash
+git fetch origin
+git worktree add --track -b <branch-name> "$WT_ROOT/<branch-name>" origin/<branch-name>
+```
+
+Useful defaults:
+
+```bash
+git config --global worktree.guessRemote true
+git config --global checkout.defaultRemote origin
+```
+
+Git will refuse to check out the same branch in two worktrees at the same time. Treat that refusal as a useful safety rail: every competing agent attempt should have its own branch.
+
+### 3. Hydrate Each Worktree
+
+Each worktree has its own working files. Ignored local files, installed dependencies, virtual environments, build output, and `.env` files are not automatically copied.
+
+For each worktree:
+
+```bash
+cd "$WT_ROOT/<task-slug>-a"
+./agent/scripts/agent-doctor.sh
+./scripts/check.sh
+```
+
+Then run the project setup command for that stack, such as `npm install`, `pnpm install`, `uv sync`, `pip install -r requirements.txt`, or `go mod download`.
+
+If local environment files are needed, copy only non-production local files and never commit them:
+
+```bash
+cp /path/to/main-worktree/.env.local .env.local
+```
+
+### 4. Give Agents Bounded Prompts
+
+Every branch gets the same feature brief and the same definition of done, but a different implementation angle.
+
+Example prompt for variant A:
+
+```text
+You are working in ../<repo>.worktrees/<task-slug>-a on branch agents/<task-slug>-a.
+
+Implement one vertical slice for:
+[feature brief]
+
+Bias this attempt toward the simplest implementation that preserves the existing public interfaces.
+
+Read canonical files under agent/ as needed.
+Do not touch other worktrees.
+Run the formatter command after code edits, then narrow checks, then ./scripts/check.sh.
+Final response must include changed files, checks run, checks skipped, tests changed, manifest changed, and agent/ docs updated.
+```
+
+Example variants:
+
+- Variant A: smallest implementation.
+- Variant B: strongest type/interface boundary.
+- Variant C: architecture cleanup first, but only if protected by tests.
+
+This gives the chooser meaningful alternatives instead of three copies of the same solution.
+
+### 5. Compare Using Evidence
+
+After each branch has run checks, collect comparable evidence:
+
+```bash
+git -C "$WT_ROOT/<task-slug>-a" status --short
+git -C "$WT_ROOT/<task-slug>-a" diff --stat "$BASE"...HEAD
+git -C "$WT_ROOT/<task-slug>-a" diff "$BASE"...HEAD
+```
+
+Ask the model to choose using this decision rule:
+
+```text
+Compare variants A, B, and C against the feature brief.
+
+Choose the winner using:
+1. Correct behavior and passing checks.
+2. Smallest coherent public interface.
+3. Least boundary drift.
+4. Tests that protect behavior without weakening existing tests.
+5. Lowest future context cost for the next agent.
+
+Return:
+- winner
+- why rejected each other variant
+- exact commits or files to keep
+- follow-up cleanup, if any
+```
+
+Do not choose the largest diff merely because it appears more complete. Prefer the implementation that makes the next change easier.
+
+### 6. Integrate The Winner
+
+The lowest-friction path is usually to push the winning branch and open a pull request:
+
+```bash
+git -C "$WT_ROOT/<task-slug>-a" push -u origin agents/<task-slug>-a
+```
+
+If you need a separate integration branch:
+
+```bash
+git switch -c integrate/<task-slug> origin/main
+git merge --no-ff agents/<task-slug>-a
+./scripts/check.sh
+```
+
+When combining selected commits from multiple variants, cherry-pick deliberately and rerun the full gate:
+
+```bash
+git cherry-pick <commit-sha>
+./scripts/check.sh
+```
+
+If the winning branch changed tests intentionally, run:
+
+```bash
+./scripts/update-test-manifest.sh
+./scripts/check.sh
+```
+
+### 7. Clean Up
+
+Remove worktrees with Git, not by deleting directories manually:
+
+```bash
+git worktree list
+git worktree remove "$WT_ROOT/<task-slug>-b"
+git worktree remove "$WT_ROOT/<task-slug>-c"
+git worktree prune
+```
+
+Delete losing local branches only after confirming no useful work remains:
+
+```bash
+git branch -D agents/<task-slug>-b
+git branch -D agents/<task-slug>-c
+```
+
+If losing branches were pushed:
+
+```bash
+git push origin --delete agents/<task-slug>-b
+git push origin --delete agents/<task-slug>-c
+```
+
+For merged GitHub pull request branches, delete the head branch after merge unless another open pull request uses it as its base.
+
+### Repository Steps That Benefit Most
+
+The strongest worktree candidates in this workflow are:
+
+- **First Agent Prompt For A New Project**: run two or three complete vertical-slice plans in parallel before choosing the project foundation.
+- **Per-Feature Developer Workflow**: use worktrees on medium/high-risk features, not every small change.
+- **Optional Sub-Agent Review Overlay**: give reviewers real competing diffs instead of only one implementation to critique.
+- **Weekly Maintenance**: try two refactor slices for the same entropy hotspot and keep the one that reduces future context needs.
+- **Architecture Reviewer escalation**: create separate branches for competing boundary designs, then record the chosen boundary in `agent/architecture.md` or an ADR.
+
+Worktrees add speed only when the comparison is disciplined. Every variant must start from the same base, receive the same acceptance criteria, run the same checks, and be cleaned up after the decision.
+
+References:
+
+- [Git worktree documentation](https://git-scm.com/docs/git-worktree.html)
+- [GitHub branches and pull requests documentation](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-branches)
 
 ## Step 9: Use ADRs For Decisions That Future Agents Must Remember
 
@@ -990,14 +1348,16 @@ Goal: create the control plane before asking agents to build features.
 Goal: make every agent change pass through the same local checks.
 
 1. Choose the project commands and write them into `agent/testing-policy.md`: `format`, `lint`, `typecheck`, `unit test`, `integration test`, `e2e smoke`, and `check`. If a command does not exist yet, write `not available yet` and the reason.
-2. Make `./scripts/check.sh` the manual one-command gate. It should call Markdown checks, test-manifest checks, and any project-specific commands that exist.
-3. Add `tests/.manifest.sha256` by running `./scripts/update-test-manifest.sh`. From this point forward, `./scripts/check-tests-unchanged.sh` tells you whether tests changed since the last approved manifest.
-4. Define the test-change rule in `agent/testing-policy.md`: existing tests must not be weakened during implementation; intentional test changes require a matching manifest update and a short explanation in the final response.
-5. Turn on strict typechecking as far as the current codebase allows. If strict mode creates too much noise, document the relaxed rule and the plan to tighten it.
-6. Add import-boundary rules for the highest-value bounded contexts first. Start with one or two forbidden imports that catch real mistakes rather than a large policy that nobody understands.
-7. Add one E2E smoke test for the most important workflow. Keep it thin: it should prove the app starts and the primary path works, not exhaustively test every variant.
-8. Update `agent/agent-rules.md` so every agent final response includes checks passed, checks skipped, and whether tests were changed.
-9. Run `./scripts/check.sh` manually before and after feature work. This replaces continuous watching; you decide when you want assurance.
+2. Configure `scripts/check-project.sh` as the project-specific quality gate. Put formatter check mode first, then lint, then typecheck and tests. Do not create a second script for this.
+3. Record the mutating formatter command in `agent/testing-policy.md` so agents know what to run immediately after code edits before they run the gate.
+4. Make `./scripts/check.sh` the manual one-command gate. It should call Markdown checks, test-manifest checks, and `scripts/check-project.sh`.
+5. Add `tests/.manifest.sha256` by running `./scripts/update-test-manifest.sh`. From this point forward, `./scripts/check-tests-unchanged.sh` tells you whether tests changed since the last approved manifest.
+6. Define the test-change rule in `agent/testing-policy.md`: existing tests must not be weakened during implementation; intentional test changes require a matching manifest update and a short explanation in the final response.
+7. Turn on strict typechecking as far as the current codebase allows. If strict mode creates too much noise, document the relaxed rule and the plan to tighten it.
+8. Add import-boundary rules for the highest-value bounded contexts first. Start with one or two forbidden imports that catch real mistakes rather than a large policy that nobody understands.
+9. Add one E2E smoke test for the most important workflow. Keep it thin: it should prove the app starts and the primary path works, not exhaustively test every variant.
+10. Update `agent/agent-rules.md` so every agent final response includes checks passed, checks skipped, and whether tests were changed.
+11. Run the formatter after code edits, then run `./scripts/check.sh` manually before and after feature work. This replaces continuous watching; you decide when you want assurance.
 
 ### Week 2: Improve Agent Memory
 
@@ -1035,10 +1395,22 @@ Goal: make every feature follow the same generate-check-fix loop.
 5. Define types, interfaces, and public boundaries first. Use names from `agent/ubiquitous-language.md`; add new terms before using them widely.
 6. Write or identify the smallest useful test. If the test suite must change, run `./scripts/update-test-manifest.sh` after the intentional edit and explain why the manifest changed.
 7. Implement one vertical slice. Keep external systems behind adapters and avoid importing another bounded context's internals.
-8. Run the narrowest check first, then broader checks, then `./scripts/check.sh`.
+8. Run the mutating formatter command recorded in `agent/testing-policy.md`, then the narrowest check first, then broader checks, then `./scripts/check.sh`.
 9. If checks fail, repair from actual tool output. Do not weaken tests unless the feature brief explicitly says the expected behavior changed.
 10. Close the loop by updating `ubiquitous-language.md`, `design-tree.md`, `architecture.md`, or an ADR when the change creates durable knowledge.
 11. Final response must state: what changed, which skill was used, which checks ran, whether tests changed, and whether the manifest changed.
+
+Optional sub-agent cadence (easy to remove):
+
+- Low risk: run only the Slice Reviewer after implementation.
+- Medium risk: run Design Reviewer + Slice Reviewer.
+- High risk (architecture/security/data/critical workflow): run Design Reviewer + Architecture Reviewer + Slice Reviewer + Final Reviewer.
+
+Speed rule:
+
+- Keep these reviews focused on blockers only.
+- Avoid running all reviewers on tiny changes.
+- Prefer one reusable prompt per reviewer role to reduce prompt-writing overhead.
 
 ## What To Avoid
 
