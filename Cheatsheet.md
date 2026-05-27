@@ -26,6 +26,12 @@ Make scripts executable if needed:
 chmod +x scripts/*.sh agent/scripts/*.sh githooks/pre-commit
 ```
 
+Ignore temporary agent session state:
+
+```bash
+grep -qxF 'agent/session-state.md' .gitignore 2>/dev/null || printf '\nagent/session-state.md\n' >> .gitignore
+```
+
 Generate tool-specific instruction shims:
 
 ```bash
@@ -189,11 +195,11 @@ go test ./...
 
 Also update `agent/testing-policy.md` so agents know both commands:
 
-| Stack | Formatter after edits | Formatter check in `check-project.sh` | Linter |
-| --- | --- | --- | --- |
-| TypeScript/JavaScript | `npm run format` | `npm run format:check` | `npm run lint` |
-| Python | `ruff format .` | `ruff format --check .` | `ruff check .` |
-| Go | `gofmt -w .` | `test -z "$(gofmt -l .)"` | `go vet ./...` and/or `golangci-lint run` |
+| Stack                 | Formatter after edits | Formatter check in `check-project.sh` | Linter                                        |
+| --------------------- | --------------------- | --------------------------------------- | --------------------------------------------- |
+| TypeScript/JavaScript | `npm run format`    | `npm run format:check`                | `npm run lint`                              |
+| Python                | `ruff format .`     | `ruff format --check .`               | `ruff check .`                              |
+| Go                    | `gofmt -w .`        | `test -z "$(gofmt -l .)"`             | `go vet ./...` and/or `golangci-lint run` |
 
 Then run the full gate:
 
@@ -236,34 +242,21 @@ It runs:
 
 Before relying on CI, verify that every file required by `agent-doctor.sh` is tracked by Git or generated during the workflow.
 
-## 6. First Agent Prompt For A New 
+## 6. First Agent Prompt For A New Project
 
 Use this before implementation:
 
 ```text
-Read the canonical files under agent/ only as needed:
-- project-brief.md
-- design-tree.md
-- architecture.md
-- ubiquitous-language.md
-- testing-policy.md
-- security-policy.md
-- agent-rules.md
+Plan the initial project design.
 
-Run the grill-me skill for the initial design concept.
+Use agent/task-routing.md and the planning workflow.
+Requested outcome: [what the project should do]
+First bounded context: [context]
+Candidate public interface: [API/component/route/module boundary]
+Constraints: [security/reliability/scalability/delivery]
 
-Input:
-requested_outcome: [what the project should do]
-bounded_context: [first bounded context]
-candidate_public_interface: [first public API/component/route/module boundary]
-constraints:
-  security: [constraints or none]
-  reliability: [constraints or none]
-  scalability: [constraints or none]
-  delivery: [constraints or none]
-
-Output the grill-me YAML template, then update agent/design-tree.md and agent/ubiquitous-language.md if needed.
-Do not implement code yet.
+Update agent/design-tree.md and agent/ubiquitous-language.md if needed.
+Present the plan for approval. Do not implement yet.
 ```
 
 After the agent responds, review the design. If it is coherent, proceed. If not, ask it to revise the design tree first.
@@ -273,226 +266,165 @@ Use this after the initial design specification is reviewed and accepted:
 ```text
 Implement the complete application from the approved initial design specification.
 
-Read canonical files under agent/ only as needed:
-- project-brief.md
-- design-tree.md
-- architecture.md
-- ubiquitous-language.md
-- testing-policy.md
-- security-policy.md
-- agent-rules.md
+Use agent/task-routing.md and the adding-features workflow.
+Implement one safe internal step at a time.
+Run the formatter command, narrow checks, then ./scripts/check.sh.
+For web UI behavior, verify with Playwright MCP.
+Do not use sub-agents unless I explicitly ask for them.
 
-Do not load tool-specific shim instruction files for this run.
-
-Working loop:
-1. Restate the product goal, primary workflows, bounded contexts, and definition of done from the canonical files.
-2. Plan implementation as ordered vertical slices mapped to the primary workflows.
-3. If a slice is non-trivial or ambiguous, run grill-me before coding that slice.
-3a. Optional (easy to remove): run Design Reviewer sub-agent before coding each medium/high-risk slice.
-4. Run testing-vertical-slices before coding each slice; choose the narrowest useful test level.
-5. Implement one vertical slice at a time, keeping external systems behind adapters and interfaces small.
-5a. Optional (easy to remove): if a slice touches multiple contexts or many files, run Architecture Reviewer sub-agent before continuing.
-6. Use terms from agent/ubiquitous-language.md in prompts, code, and tests; update it when durable terms are added.
-7. Respect architecture boundaries: do not import internals from another bounded context.
-8. After code edits, run the formatter command from agent/testing-policy.md, then run narrow checks, then run ./scripts/check.sh.
-8a. Optional (easy to remove): run Slice Reviewer sub-agent after narrow checks for continuous review.
-9. For web UI behavior, verify with Playwright MCP before marking a slice done.
-10. If tests change intentionally, run ./scripts/update-test-manifest.sh and explain why.
-11. Update agent/design-tree.md, agent/architecture.md, and agent/adr/* whenever durable decisions change.
-12. Optional (easy to remove): run Final Reviewer sub-agent before merge for independent gatekeeping.
-
-Continue until all primary workflows in agent/project-brief.md satisfy the definition of done.
-
-Final response must include:
-- What was implemented.
-- Skills used.
-- Checks run.
-- Checks skipped or unavailable.
-- Whether tests changed and whether the test manifest changed.
-- Which agent/ docs or ADRs were updated.
+Final response: what changed, checks run/skipped, tests/manifest changed, agent docs/ADRs updated, and whether temporary session state was cleared.
 ```
 
-Optional removable sub-agent prompts:
-- Design Reviewer (required sub-agent role: independent reviewer)
-  Prompt:
-  Review the feature brief and grill-me output before coding.
-  Use only the Step 10-style checklist: language, bounded context, public interfaces, adapter isolation, tests, and coupling.
-  Return only blockers, risk level (low/medium/high), and one exact fix per blocker.
-  If no blockers, reply exactly: approved for implementation
-- Architecture Reviewer (required sub-agent role: improving-architecture)
-  Prompt:
-  Review this slice for boundary drift.
-  Return one minimal boundary improvement, the public API change, and the smallest protecting test.
-  Do not propose broad cleanup.
-- Slice Reviewer (required sub-agent role: code reviewer)
-  Prompt:
-  Review only the current slice diff plus narrow-check output.
-  Report only blocking issues with exact fixes.
-  Ignore style-only or optional cleanup.
-  If no blockers, reply exactly: approved for next slice
-- Final Reviewer (required sub-agent role: independent merge reviewer)
-  Prompt:
-  Review full diff and changed agent/ docs before merge.
-  Prioritize boundary drift, test weakening, adapter leakage, and stale instruction files.
-  Report only merge blockers and exact fixes.
-  If no blockers, reply exactly: approved for merge
+Sub-agent reviewer prompts are intentionally not part of the default flow. Use them only when the user explicitly asks for sub-agents or parallel agent review.
 
-After the first pass, review missing workflow gaps and continue slice-by-slice until complete.
+After the first pass, review missing workflow gaps and continue one safe internal step at a time until complete.
 
 ## 7. Per-Feature Developer Workflow
 
 For every feature, do this:
 
-1. Write a small feature brief.
-2. Ask the agent to update `agent/project-brief.md` with the new or changed user workflow, success condition, and definition-of-done impact.
-3. Ask the agent to update `agent/design-tree.md` with the design choices and a Feature Slice Ledger for the vertical slices.
-4. Ask the agent to run `grill-me` if the work is non-trivial.
-5. Ask the agent to run `testing-vertical-slices`.
-6. Ask the agent to write or identify the smallest behavior test for the next planned slice.
-7. Ask the agent to implement one vertical slice.
-8. Ask the agent to mark that slice `in_progress` in the Feature Slice Ledger before coding.
-9. Ask the agent to run the formatter command from `agent/testing-policy.md`.
-10. Ask the agent to run narrow checks first.
-11. Ask the agent to run `./scripts/check.sh`, which must include formatter check mode and lint through `scripts/check-project.sh`.
-12. Ask the agent to mark the slice `done` or `blocked` in the Feature Slice Ledger based on actual check output.
-13. Ask the agent to update `agent/` docs or ADRs if durable knowledge changed.
-14. Review whether tests changed. If tests changed intentionally, verify the manifest changed too.
-15. Optional (easy to remove): run Slice Reviewer sub-agent after narrow checks.
-16. Optional (easy to remove): if the slice touches multiple contexts, run Architecture Reviewer sub-agent.
-17. Optional (easy to remove): run Final Reviewer sub-agent before merge on medium/high-risk work.
+1. Ask the agent to plan the feature first.
+2. Review and ratify the plan.
+3. Ask the agent to implement the approved plan.
+4. The agent manages any step-by-step bookkeeping internally, runs the formatter, narrow checks, and `./scripts/check.sh`, then clears temporary state when done.
+5. If tests changed intentionally, verify the manifest changed too.
+6. The agent updates `agent/` docs or ADRs only when durable knowledge changed.
 
-Feature Slice Ledger:
+Internal session state:
 
-Use `agent/design-tree.md` as the working memory for sequential slices. Add this section when a feature has more than one slice, or when the work may be interrupted and resumed:
+Feature-step bookkeeping is an internal agent mechanism. Developers should not have to create, review, or maintain feature-slice ledgers.
 
-```md
-## Active Feature Slices
+Agents may use gitignored `agent/session-state.md` when a feature has multiple steps or may be interrupted. The file must contain only the smallest resume state needed for the current session.
 
-| Slice ID | Feature | User Outcome | Bounded Context | Depends On | Status | Checks | Notes |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| FS-001 | [feature name] | [observable behavior] | [context] | none | planned | [formatter], [narrow], ./scripts/check.sh | [risk or decision] |
-| FS-002 | [feature name] | [next observable behavior] | [context] | FS-001 | planned | [formatter], [narrow], ./scripts/check.sh | [risk or decision] |
-```
+When the feature is complete, the agent must clear `agent/session-state.md`. Only durable decisions move into `agent/design-tree.md`, `agent/architecture.md`, `agent/ubiquitous-language.md`, or an ADR.
 
-Status values:
-
-- `planned`: not started.
-- `in_progress`: currently being implemented; only one slice should have this status.
-- `done`: implemented and checks passed.
-- `blocked`: stopped on missing information or failing external prerequisite.
-
-When all slices are `done`, remove the active ledger or move the durable result into `Settled Decisions`, `Pressure Points`, `agent/architecture.md`, or an ADR. Do not leave stale slice state in `agent/design-tree.md`.
-
-Feature prompt template:
+Feature planning prompt:
 
 ```text
 Feature:
 [What the user can now do.]
 
-Project brief update:
-- Update agent/project-brief.md with the new/changed primary workflow, success condition, and definition-of-done impact.
-
-Bounded context:
-[Context from agent/architecture.md.]
-
-Domain language:
-[Terms from agent/ubiquitous-language.md.]
-
 Expected behavior:
 - [Happy path]
 - [Edge case]
 
-Checks:
-- [formatter command from agent/testing-policy.md]
-- [narrow command]
-- ./scripts/check.sh
-
-Design tree / working memory:
-- Update agent/design-tree.md before coding.
-- Add or update Open Decisions, Settled Decisions, and Pressure Points as needed.
-- Add or update the Active Feature Slices ledger.
-- Mark exactly one next slice as in_progress before coding.
-- After checks, mark that slice done or blocked and leave the next planned slice visible.
-
-Use these skills:
-1. grill-me, if the design is non-trivial or ambiguous.
-2. testing-vertical-slices before implementation.
-
-Optional sub-agent blocks (delete this section if sub-agents are unavailable):
-1. Design Reviewer (for medium/high-risk work) prompt:
-   Review the feature brief and grill-me output before coding.
-   Return blockers, risk level, and exact fixes only.
-   If no blockers, reply exactly: approved for implementation
-2. Slice Reviewer (continuous review) prompt:
-   Review only this slice diff and narrow-check output.
-   Report blockers and exact fixes only.
-   If no blockers, reply exactly: approved for next slice
-3. Architecture Reviewer (boundary escalation) prompt:
-   If this slice crosses contexts, propose one minimal boundary correction and the protecting test.
-4. Final Reviewer (pre-merge) prompt:
-   Review full diff + changed agent docs.
-   Report only merge blockers and exact fixes.
-   If no blockers, reply exactly: approved for merge
-
-Implement one vertical slice only.
-Run the formatter command after code edits.
-Do not weaken existing tests.
-If test files change intentionally, run ./scripts/update-test-manifest.sh and explain why.
-Final response must include checks run, skipped checks, skills used, whether tests changed, whether the manifest changed, project-brief updates, design-tree updates, and the next planned slice ID.
+Use agent/task-routing.md and the planning workflow.
+Present the plan for my approval. Do not implement yet.
 ```
 
-Follow-up prompt to continue feature slices:
+Feature implementation prompt after approval:
 
 ```text
-Continue implementing the feature from the Active Feature Slices ledger in agent/design-tree.md.
+Implement the approved feature plan.
 
-Read only the relevant canonical files:
-- agent/project-brief.md
-- agent/design-tree.md
-- agent/architecture.md
-- agent/ubiquitous-language.md
-- agent/testing-policy.md
-- agent/agent-rules.md
+Use agent/task-routing.md and the adding-features workflow.
+Manage implementation steps internally in agent/session-state.md if needed.
+Run the formatter command, narrow checks, then ./scripts/check.sh.
+Clear temporary session state when the feature is complete.
+Do not weaken tests. If tests change intentionally, update the test manifest.
+Do not use sub-agents unless I explicitly ask for them.
+```
 
-Find the first slice with status planned and all dependencies done.
-Mark that slice in_progress before coding.
-Implement only that slice.
-Run the formatter command from agent/testing-policy.md, then the narrow checks listed for the slice, then ./scripts/check.sh.
-If checks pass, mark the slice done and leave the next planned slice visible.
-If blocked, mark the slice blocked with the exact blocker and stop.
+Follow-up prompt to continue feature work:
 
-Do not start another slice in the same pass.
+```text
+Continue the approved feature implementation.
+
+Use agent/task-routing.md and the adding-features workflow.
+Resume from agent/session-state.md if present.
+Implement only the next safe internal step.
+Run the formatter command, narrow checks, then ./scripts/check.sh.
+If blocked, keep the smallest resume note in agent/session-state.md and stop.
+
 Do not weaken tests.
 If tests change intentionally, run ./scripts/update-test-manifest.sh and explain why.
-
-Final response must include:
-- slice ID implemented
-- files changed
-- checks run
-- checks skipped or unavailable
-- whether tests changed
-- whether the manifest changed
-- project-brief updates, if any
-- design-tree ledger status
-- next planned slice ID
 ```
 
-Follow-up prompt to repair or resume an interrupted slice:
+Follow-up prompt to repair or resume interrupted work:
 
 ```text
-Resume the slice marked in_progress in agent/design-tree.md.
+Resume the approved feature implementation.
 
-If no slice is in_progress, choose the first planned slice whose dependencies are done.
-Repair or implement only that slice.
+Use agent/session-state.md if present.
+Repair or implement only the next safe internal step.
 Use actual tool output as the source of truth.
-Run the formatter command from agent/testing-policy.md, then the slice's narrow checks, then ./scripts/check.sh.
-Update the Active Feature Slices ledger to done or blocked.
+Run the formatter command, narrow checks, then ./scripts/check.sh.
 
-Do not start a second slice.
-Final response must include the slice ID, status, checks, and next planned slice.
+Do not broaden scope.
+Clear temporary session state if the feature is complete.
+```
+
+## 7.5 Debugging
+
+Debugging prompt:
+
+```text
+Debug this:
+[failure, error, or broken behavior]
+
+Expected behavior:
+[what should happen]
+
+Use agent/task-routing.md and the debugging workflow.
+Reproduce or inspect the failure first, fix the smallest root cause, then run narrow checks and ./scripts/check.sh.
+Do not weaken tests.
+```
+
+Code explanation prompt:
+
+```text
+Explain how this works:
+[feature, module, route, component, or behavior]
+
+Use agent/task-routing.md and the explaining-codebase workflow.
+Inspect only the relevant files and do not edit anything.
 ```
 
 ## 8. When To Use Each Skill
+
+Use `planning` when:
+
+- The user asks for a plan, design, approach, or breakdown.
+- A feature request has no approved plan yet.
+
+Ask:
+
+```text
+Use agent/task-routing.md and agent/skills/planning/SKILL.md. Present the plan for approval before implementation.
+```
+
+Use `adding-features` when:
+
+- The user has ratified a feature plan.
+- The approved feature plan should be implemented.
+
+Ask:
+
+```text
+Use agent/task-routing.md and agent/skills/adding-features/SKILL.md. Implement the approved plan one internal step at a time.
+```
+
+Use `debugging` when:
+
+- A behavior is broken.
+- A command, test, or runtime flow is failing.
+
+Ask:
+
+```text
+Use agent/task-routing.md and agent/skills/debugging/SKILL.md for this failure: [failure].
+```
+
+Use `explaining-codebase` when:
+
+- The user asks how code works.
+- The user wants a map of a feature, module, route, or behavior.
+
+Ask:
+
+```text
+Use agent/task-routing.md and agent/skills/explaining-codebase/SKILL.md. Do not edit files.
+```
 
 Use `grill-me` before:
 
@@ -543,14 +475,16 @@ Use `tracking-entropy` when:
 Ask:
 
 ```text
-Run agent/skills/tracking-entropy/SKILL.md with time window 12.month. Pick one hotspot and propose the smallest next refactor slice.
+Run agent/skills/tracking-entropy/SKILL.md with time window 12.month. Pick one hotspot and propose the smallest next refactor step.
 ```
 
-### Optional Sub-Agent Review Overlay (easy to remove)
+### Explicit Sub-Agent Review Overlay
+
+Use sub-agents only when the user explicitly asks for sub-agents, parallel agents, reviewer agents, or competing implementations. Otherwise, perform these reviews locally in the main agent.
 
 Use Design Reviewer sub-agent:
 
-- Before coding medium/high-risk slices.
+- Before coding medium/high-risk implementation steps.
 - After `grill-me`, before implementation.
 
 Ask:
@@ -561,22 +495,22 @@ Report blockers, risk level, and exact fixes only.
 If no blockers, reply exactly: approved for implementation
 ```
 
-Use Slice Reviewer sub-agent:
+Use Step Reviewer sub-agent:
 
-- After narrow checks for each medium/high-risk slice.
-- For low-risk work, every second slice to reduce overhead.
+- After narrow checks for each medium/high-risk implementation step.
+- For low-risk work, every second step to reduce overhead.
 
 Ask:
 
 ```text
-Review only current slice diff + narrow-check output.
+Review only the current step diff + narrow-check output.
 Report blockers and exact fixes only.
-If no blockers, reply exactly: approved for next slice
+If no blockers, reply exactly: approved for next step
 ```
 
 Use Architecture Reviewer sub-agent:
 
-- When one slice spans contexts or many files.
+- When one implementation step spans contexts or many files.
 
 Ask:
 
@@ -597,15 +531,15 @@ Report merge blockers and exact fixes only.
 If no blockers, reply exactly: approved for merge
 ```
 
-Speed notes:
+Speed notes when sub-agents are explicitly requested:
 
 - Keep reviewer outputs blocker-only to reduce token and triage time.
 - Start Slice Reviewer right after narrow checks while broader checks continue.
-- Skip optional reviewer layers on tiny low-risk changes.
+- Skip reviewer layers on tiny low-risk changes.
 
 ## 8.5 Worktree Branches For Parallel Agent Runs
 
-Use Git worktrees when you want two or three agents to try competing implementations from the same base branch.
+Use Git worktrees when you explicitly want two or three agents to try competing implementations from the same base branch.
 
 Best targets:
 
@@ -675,7 +609,7 @@ Do not commit secrets.
 ```text
 You are working in ../<repo>.worktrees/<task-slug>-a on branch agents/<task-slug>-a.
 
-Implement one vertical slice for:
+Implement one safe internal step for:
 [feature brief]
 
 Variant angle:
@@ -768,11 +702,11 @@ Then ask an agent:
 Run tracking-entropy on the hotspot list.
 Pick one high-churn area.
 Then run improving-architecture on that area.
-Propose one small refactor slice, the test that protects it, and whether an ADR is needed.
-Do not implement until I approve the slice.
+Propose one small refactor step, the test that protects it, and whether an ADR is needed.
+Do not implement until I approve the step.
 ```
 
-If approved, implement one slice and run:
+If approved, implement one step and run:
 
 ```bash
 ./scripts/check.sh
@@ -852,6 +786,12 @@ git worktree remove ../<repo>.worktrees/<task-slug>-b
 
 Remove a completed or rejected worktree.
 
+```bash
+test ! -s agent/session-state.md
+```
+
+Check that no temporary session state remains after completed work.
+
 ## 12. What To Check Before Merging
 
 Before merge, require:
@@ -864,9 +804,10 @@ Before merge, require:
 6. Boundary changes are in `agent/architecture.md`.
 7. Durable decisions have ADRs.
 8. No hidden rules exist only in chat.
-9. Optional (easy to remove): Final Reviewer sub-agent reports `approved for merge` for medium/high-risk changes.
+9. Sub-agent review is present only if the user explicitly requested sub-agents.
 10. If worktrees were used, the winning branch is identified and rejected worktrees are removed or intentionally kept.
 11. `scripts/check-project.sh` includes formatter check mode and lint for the current project stack.
+12. `agent/session-state.md` is empty or absent unless work is intentionally blocked.
 
 ## 13. Quick Recovery
 
@@ -878,3 +819,64 @@ If an agent makes a messy change:
 4. If design drift caused the issue, run `grill-me`.
 5. If tests changed unexpectedly, run `./scripts/check-tests-unchanged.sh` and inspect the diff.
 6. If one module is absorbing too much change, run `tracking-entropy` and then `improving-architecture`.
+7. If `agent/session-state.md` contains stale notes, either resume from them or clear them after extracting any durable decision.
+
+## 14. Move Only The New Retrieval Framework
+
+Use this when a repo already has this agent control plane and you only want to add the new retrieval framework. These commands avoid changing existing generated agent instruction files.
+
+Set paths:
+
+```bash
+FRAMEWORK=/path/to/AgentCoding
+TARGET=/path/to/existing-project
+```
+
+Preview what will be added:
+
+```bash
+find "$FRAMEWORK/agent/skills" -maxdepth 2 -type f -name 'SKILL.md' \
+  \( -path '*/planning/*' -o -path '*/adding-features/*' -o -path '*/debugging/*' -o -path '*/explaining-codebase/*' \)
+```
+
+Copy only missing retrieval files:
+
+```bash
+mkdir -p \
+  "$TARGET/agent/skills/planning" \
+  "$TARGET/agent/skills/adding-features" \
+  "$TARGET/agent/skills/debugging" \
+  "$TARGET/agent/skills/explaining-codebase"
+
+cp -n "$FRAMEWORK/agent/task-routing.md" "$TARGET/agent/task-routing.md"
+cp -n "$FRAMEWORK/agent/skills/planning/SKILL.md" "$TARGET/agent/skills/planning/SKILL.md"
+cp -n "$FRAMEWORK/agent/skills/adding-features/SKILL.md" "$TARGET/agent/skills/adding-features/SKILL.md"
+cp -n "$FRAMEWORK/agent/skills/debugging/SKILL.md" "$TARGET/agent/skills/debugging/SKILL.md"
+cp -n "$FRAMEWORK/agent/skills/explaining-codebase/SKILL.md" "$TARGET/agent/skills/explaining-codebase/SKILL.md"
+
+grep -qxF 'agent/session-state.md' "$TARGET/.gitignore" 2>/dev/null || printf '\nagent/session-state.md\n' >> "$TARGET/.gitignore"
+```
+
+Alternative with `rsync`:
+
+```bash
+rsync -av --ignore-existing "$FRAMEWORK/agent/task-routing.md" "$TARGET/agent/task-routing.md"
+rsync -av --ignore-existing "$FRAMEWORK/agent/skills/planning/" "$TARGET/agent/skills/planning/"
+rsync -av --ignore-existing "$FRAMEWORK/agent/skills/adding-features/" "$TARGET/agent/skills/adding-features/"
+rsync -av --ignore-existing "$FRAMEWORK/agent/skills/debugging/" "$TARGET/agent/skills/debugging/"
+rsync -av --ignore-existing "$FRAMEWORK/agent/skills/explaining-codebase/" "$TARGET/agent/skills/explaining-codebase/"
+
+grep -qxF 'agent/session-state.md' "$TARGET/.gitignore" 2>/dev/null || printf '\nagent/session-state.md\n' >> "$TARGET/.gitignore"
+```
+
+Do not run this in the target repo if you want to preserve existing generated instruction files:
+
+```bash
+./agent/scripts/sync-agent-env.sh
+```
+
+After copying, inspect the added files:
+
+```bash
+git -C "$TARGET" status --short
+```

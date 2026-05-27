@@ -26,6 +26,7 @@ Fill these files before feature implementation:
 - `architecture.md`
 - `testing-policy.md`
 - `agent-rules.md`
+- `task-routing.md`
 
 Then run:
 
@@ -52,3 +53,17 @@ Configure test immutability detection in `agent/test-manifest.conf`.
 
 - `grill-me` is the shorthand alias.
 - `grill-me` is the canonical skill contract.
+
+## Task routing
+
+- `task-routing.md` maps the user's current intent to one workflow skill.
+- Load one task workflow first: `planning`, `adding-features`, `debugging`, or `explaining-codebase`.
+- Feature implementation requires a user-ratified plan. If no approved plan exists, plan first and stop.
+- Feature-slice bookkeeping is internal and temporary. Use ignored `session-state.md` only when needed for resume.
+- Use sub-agents only when the user explicitly asks for them.
+
+## Context hygiene
+
+- Keep temporary implementation state out of canonical files.
+- Clear `agent/session-state.md` after a feature is complete.
+- Promote only durable decisions to `design-tree.md`, `architecture.md`, `ubiquitous-language.md`, or `adr/`.

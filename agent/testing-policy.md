@@ -18,7 +18,7 @@
 
 1. Identify or add the failing behavior.
 2. Select the smallest useful test level.
-3. Implement one vertical slice.
+3. Implement one internal feature slice.
 4. Run narrow checks first, then broader checks.
 5. Repair from actual tool output.
 6. For web UI or HTML/CSS work, include a Playwright MCP browser verification step.

@@ -30,4 +30,3 @@ A feature is complete only when it has all of the following:
 3. Behavior tests plus at least one edge case test.
 4. Deterministic checks run (`./scripts/check.sh` and relevant project checks).
 5. No new illegal boundary crossings.
-

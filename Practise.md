@@ -12,7 +12,7 @@ Every agent task should therefore follow this shape:
 
 1. Clarify the design concept.
 2. Write or update the smallest useful design artifact.
-3. Implement one vertical slice.
+3. Implement one internal feature slice.
 4. Run deterministic checks.
 5. Repair based on tool output.
 6. Record the design decision if it changes architecture or language.
@@ -35,9 +35,18 @@ agent/
   testing-policy.md
   security-policy.md
   agent-rules.md
+  task-routing.md
   tool-instruction-template.md
   mcp.json
   skills/
+    planning/
+      SKILL.md
+    adding-features/
+      SKILL.md
+    debugging/
+      SKILL.md
+    explaining-codebase/
+      SKILL.md
     grill-me/
       SKILL.md
     testing-vertical-slices/
@@ -56,7 +65,7 @@ agent/
 
 Why this matters: agents need a stable memory layer that lives in the repo, not in one person's chat history or local tool configuration.
 
-Keep these files short enough to be loaded frequently. Move long references, examples, schemas, and checklists into separate files that agents load only when needed.
+Keep these files short enough to be loaded frequently. Move long references, examples, schemas, and checklists into separate files that agents load only when needed. Use `agent/task-routing.md` as the retrieval layer that maps the user's current intent to one task workflow.
 
 Then generate tool-specific instruction files from the canonical `agent/` files. Common targets:
 
@@ -94,14 +103,16 @@ If this shim conflicts with files under `agent/`, treat this shim as stale, foll
 
 ## Required Context Before Editing
 
-Before changing code or tests, read the smallest relevant set of canonical files:
+Before changing code or tests, read `agent/task-routing.md`, classify the current task, and load only the matching workflow from `agent/skills/<skill-name>/SKILL.md`.
 
-- `agent/project-brief.md` for product goals, users, workflows, non-goals, and definition of done.
-- `agent/design-tree.md` for the current design concept, open decisions, settled decisions, and pressure points.
-- `agent/architecture.md` for bounded contexts, module ownership, public interfaces, adapters, and forbidden imports.
-- `agent/ubiquitous-language.md` for domain terms, technical symbols, definitions, constraints, and names to avoid.
-- `agent/testing-policy.md` for required test levels, mocking rules, and when tests may change.
-- `agent/agent-rules.md` for the day-to-day implementation workflow.
+Then read the smallest relevant set of canonical files requested by that workflow:
+
+- `agent/project-brief.md`
+- `agent/design-tree.md`
+- `agent/architecture.md`
+- `agent/ubiquitous-language.md`
+- `agent/testing-policy.md`
+- `agent/agent-rules.md`
 
 Load additional files only when they are relevant to the task. Keep context focused.
 
@@ -109,7 +120,14 @@ Load additional files only when they are relevant to the task. Keep context focu
 
 Skills live under `agent/skills/<skill-name>/SKILL.md`. Use a skill when its name or purpose matches the task.
 
-Default triggers:
+Task workflows:
+
+- Use `planning` for plans, designs, approaches, and feature planning gates.
+- Use `adding-features` for feature implementation after a user-ratified plan.
+- Use `debugging` for bugs, failures, regressions, exceptions, and failing checks.
+- Use `explaining-codebase` for codebase walkthroughs and explanations without edits.
+
+Supporting skill triggers:
 
 - Use `grill-me` before non-trivial features, architecture changes, cross-context changes, or ambiguous bug fixes.
 - Use `testing-vertical-slices` for feature work and bug fixes that need behavior verification.
@@ -118,6 +136,8 @@ Default triggers:
 
 When using a skill, read its `SKILL.md`, follow its process, and load only the referenced supporting files needed for the current task.
 
+Do not use sub-agents unless the user explicitly asks for sub-agents, parallel agents, reviewer agents, or competing agent implementations.
+
 ## Default Work Loop
 
 For every implementation task:
@@ -125,10 +145,14 @@ For every implementation task:
 1. Restate the requested behavior and identify the bounded context.
 2. Identify the intended public interface and the files likely to change.
 3. Add or identify the smallest test or deterministic check that proves the behavior.
-4. Implement one vertical slice at a time.
+4. Implement one internal feature slice at a time.
 5. Run the narrowest relevant check first, then the broader relevant suite.
 6. Repair based on actual tool output, not guesswork.
 7. Update `agent/ubiquitous-language.md`, `agent/design-tree.md`, `agent/architecture.md`, or `agent/adr/` if the change alters domain language, boundaries, or durable design decisions.
+
+For feature implementation, an approved plan is mandatory. If no approved plan exists, produce the plan first, present it to the user, and stop. Do not implement until the user ratifies the plan.
+
+Feature-slice bookkeeping is internal. Use gitignored `agent/session-state.md` only when interruption or resume support is needed, and clear it when the feature is complete. Do not store temporary slice state in canonical files.
 
 ## Engineering Rules
 
@@ -157,6 +181,42 @@ Your final response must include:
 ## Step 2: Write The Minimum Useful Instruction Files
 
 Create these files before serious implementation starts.
+
+### `agent/task-routing.md`
+
+Purpose: keep the default prompt small by routing the user's current intent to one workflow.
+
+Use it to map:
+
+- Planning requests to `agent/skills/planning/SKILL.md`.
+- Feature requests to `agent/skills/adding-features/SKILL.md`.
+- Debugging requests to `agent/skills/debugging/SKILL.md`.
+- Explanation requests to `agent/skills/explaining-codebase/SKILL.md`.
+
+Rule: load exactly one task workflow first. Load supporting skills and canonical files only when that workflow asks for them.
+
+Feature gate: if the user asks for feature implementation and no approved plan exists, the agent must produce the plan, present it to the user, and stop. Implementation starts only after user ratification.
+
+### Temporary Vs Durable Agent State
+
+Purpose: prevent context bloat in canonical agent files.
+
+Temporary state belongs in gitignored `agent/session-state.md` and should be removed as soon as it is no longer needed:
+
+- Internal feature-slice checklists.
+- Current failing command excerpts.
+- Resume notes for blocked work.
+- Scratch reviewer notes.
+- Worktree variant comparison notes.
+
+Durable state belongs in canonical files only when it changes future implementation:
+
+- `agent/design-tree.md` for open or settled design decisions.
+- `agent/architecture.md` for bounded contexts, ownership, public interfaces, adapters, and forbidden imports.
+- `agent/ubiquitous-language.md` for domain terms that should appear in prompts, code, or tests.
+- `agent/adr/*` for decisions that future agents must preserve.
+
+Cleanup rule: when a feature, debug repair, or refactor finishes, remove temporary session state. If a temporary note revealed durable knowledge, compress it into the appropriate canonical file and delete the scratch detail.
 
 ### `agent/project-brief.md`
 
@@ -362,7 +422,7 @@ Recommended rules:
 
 ## While Coding
 
-- Work in one vertical slice at a time.
+- Work in one internal feature slice at a time.
 - Prefer existing project patterns over new abstractions.
 - Define types and interfaces before implementation.
 - Keep public interfaces small.
@@ -374,11 +434,55 @@ Recommended rules:
 - Run formatter, linter, typecheck, and relevant tests.
 - Explain which checks ran and which did not.
 - Update the glossary, design tree, or ADRs if the design changed.
+- Clear `agent/session-state.md` when temporary implementation state is no longer needed.
 ```
 
 ## Step 3: Add Skills That Encode Repeatable Work
 
 Skills should be small, named by capability, and loaded only when relevant. Do not make one giant "coding" skill.
+
+### Task Workflow: `planning`
+
+Create `agent/skills/planning/SKILL.md`.
+
+Use when the user asks for a plan, design, approach, or when a feature request has no approved plan yet.
+
+The workflow should:
+
+1. Restate the requested outcome.
+2. Load only the canonical files needed for the bounded context.
+3. Identify public interface, likely files, checks, and design artifacts.
+4. Split larger work into internal feature slices without exposing slice bookkeeping to the user.
+5. Run `grill-me` locally for risky or ambiguous work.
+6. Present the plan and wait for user ratification before implementation.
+
+### Task Workflow: `adding-features`
+
+Create `agent/skills/adding-features/SKILL.md`.
+
+Use for feature implementation only after the user has ratified a plan.
+
+Hard gate:
+
+- If no approved plan exists, run `planning`, present the plan, and stop.
+- Do not edit implementation code until the user ratifies the plan.
+- After ratification, implement one internal feature slice at a time.
+- Track temporary feature-slice state in `agent/session-state.md`, not canonical files.
+- Clear `agent/session-state.md` when the feature is complete.
+
+### Task Workflow: `debugging`
+
+Create `agent/skills/debugging/SKILL.md`.
+
+Use when the user reports a bug, failing check, exception, regression, or broken behavior.
+
+The workflow should reproduce or inspect the failure first, identify the smallest behavior check that proves the fix, repair from actual tool output, and avoid broad rewrites.
+
+### Task Workflow: `explaining-codebase`
+
+Create `agent/skills/explaining-codebase/SKILL.md`.
+
+Use when the user asks how code works. It should inspect the smallest relevant file set, explain public interfaces before internals, and avoid file edits.
 
 ### Skill 1: `grill-me`
 
@@ -403,7 +507,7 @@ Use before implementation of non-trivial features, architecture changes, or ambi
    - Coupling
 5. Ask: "What assumption would make this implementation wrong?"
 6. Revise the plan.
-7. Write the final implementation slice.
+7. Write the first internal implementation step.
 
 ## Output
 
@@ -596,9 +700,15 @@ test -f agent/ubiquitous-language.md
 test -f agent/architecture.md
 test -f agent/testing-policy.md
 test -f agent/agent-rules.md
+test -f agent/task-routing.md
 test -f agent/tool-instruction-template.md
+test -f agent/skills/planning/SKILL.md
+test -f agent/skills/adding-features/SKILL.md
+test -f agent/skills/debugging/SKILL.md
+test -f agent/skills/explaining-codebase/SKILL.md
 
 command -v git >/dev/null
+grep -qxF "agent/session-state.md" .gitignore
 
 echo "Agent instruction files present."
 echo "Git available."
@@ -913,9 +1023,9 @@ Required output:
 
 For small changes, this can be five bullets. For architectural changes, it should update `agent/design-tree.md` or create an ADR.
 
-#### Optional Sub-Agent Overlay (easy to remove)
+#### Explicit Sub-Agent Overlay (only when requested)
 
-Add this block only when sub-agents are available. Remove this block without affecting the base workflow.
+Add this block only when the user explicitly asks for sub-agents, reviewer agents, parallel agents, or competing implementations. Otherwise, perform this review locally in the main agent and continue the base workflow.
 
 Sub-agent: **Design Reviewer** (independent reviewer).
 
@@ -955,7 +1065,7 @@ Testing choice:
 
 Add one edge case that targets the easiest agent mistake.
 
-### 5. Implement The Slice
+### 5. Implement One Internal Step
 
 Rules:
 
@@ -965,22 +1075,22 @@ Rules:
 - Do not create generic helpers until two or three real call sites prove the shape.
 - Prefer deep modules with small public APIs.
 
-#### Optional Sub-Agent Escalation For Multi-Context Slices (easy to remove)
+#### Explicit Sub-Agent Escalation For Multi-Context Work (only when requested)
 
-Trigger this only when a slice touches multiple bounded contexts, too many files, or has unclear ownership.
+Use this only when the user explicitly asks for sub-agents. If an implementation step touches multiple bounded contexts, too many files, or has unclear ownership, run the same review locally unless sub-agents were requested.
 
 Sub-agent: **Architecture Reviewer** (`improving-architecture`).
 
 Prompt:
 
 ```text
-Review this slice for boundary drift.
+Review this implementation step for boundary drift.
 Identify:
 - hidden domain concept
 - boundary that should be tightened
 - smallest public API change
 - test that protects the boundary
-Return one minimal refactor slice only.
+Return one minimal refactor step only.
 ```
 
 ### 6. Run Generate-Check-Fix
@@ -1000,24 +1110,26 @@ The mutating formatter command should run immediately after code is written, bef
 
 The agent should paste the failing output back into its reasoning and fix the actual cause. It should not guess from memory when deterministic output is available.
 
-#### Optional Continuous Slice Review (easy to remove)
+#### Explicit Continuous Step Review (only when requested)
 
-Sub-agent: **Slice Reviewer** (code review after each slice).
+Use a sub-agent for this review only when the user explicitly asks for sub-agents. Otherwise, do the blocker-only review locally after narrow checks.
+
+Sub-agent: **Step Reviewer** (code review after each implementation step).
 
 Prompt:
 
 ```text
-Review only the current slice diff and the narrow check output.
+Review only the current step diff and the narrow check output.
 Use the Step 10 review checklist.
 Report only blockers and exact fixes.
 Do not suggest optional cleanup or style-only edits.
-If there are no blockers, reply exactly: approved for next slice
+If there are no blockers, reply exactly: approved for next step
 ```
 
-Speed guidance:
+Speed guidance when sub-agents are explicitly requested:
 
 - Start this review immediately after narrow checks, while broader checks are running.
-- Use this on every medium/high-risk slice; for low-risk slices, run it every second slice.
+- Use this on every medium/high-risk step; for low-risk work, run it every second step.
 
 ### 7. Close The Loop
 
@@ -1028,7 +1140,9 @@ Before finishing, update:
 - `agent/architecture.md` if a boundary changed.
 - `agent/adr/` if the change affects future implementation choices.
 
-#### Optional Final Independent Review (easy to remove)
+#### Explicit Final Independent Review (only when requested)
+
+Use a sub-agent for this review only when the user explicitly asks for one. Otherwise, perform the final blocker check locally.
 
 Sub-agent: **Final Reviewer** (independent merge gate).
 
@@ -1144,7 +1258,7 @@ Example prompt for variant A:
 ```text
 You are working in ../<repo>.worktrees/<task-slug>-a on branch agents/<task-slug>-a.
 
-Implement one vertical slice for:
+Implement one safe internal step for:
 [feature brief]
 
 Bias this attempt toward the simplest implementation that preserves the existing public interfaces.
@@ -1255,11 +1369,11 @@ For merged GitHub pull request branches, delete the head branch after merge unle
 
 The strongest worktree candidates in this workflow are:
 
-- **First Agent Prompt For A New Project**: run two or three complete vertical-slice plans in parallel before choosing the project foundation.
-- **Per-Feature Developer Workflow**: use worktrees on medium/high-risk features, not every small change.
-- **Optional Sub-Agent Review Overlay**: give reviewers real competing diffs instead of only one implementation to critique.
-- **Weekly Maintenance**: try two refactor slices for the same entropy hotspot and keep the one that reduces future context needs.
-- **Architecture Reviewer escalation**: create separate branches for competing boundary designs, then record the chosen boundary in `agent/architecture.md` or an ADR.
+- **First Agent Prompt For A New Project**: when the user explicitly asks for parallel agent work, run two or three complete implementation plans before choosing the project foundation.
+- **Per-Feature Developer Workflow**: when explicitly requested, use worktrees on medium/high-risk features, not every small change.
+- **Sub-Agent Review Overlay**: only when explicitly requested, give reviewers real competing diffs instead of only one implementation to critique.
+- **Weekly Maintenance**: when explicitly requested, try two refactor steps for the same entropy hotspot and keep the one that reduces future context needs.
+- **Architecture Reviewer escalation**: only when explicitly requested, create separate branches for competing boundary designs, then record the chosen boundary in `agent/architecture.md` or an ADR.
 
 Worktrees add speed only when the comparison is disciplined. Every variant must start from the same base, receive the same acceptance criteria, run the same checks, and be cleaned up after the decision.
 
@@ -1338,10 +1452,11 @@ Goal: create the control plane before asking agents to build features.
 5. Run the `grill-me` pre-flight review from `Plan.md` before creating architecture rules. In this repo, implement that as the `grill-me` skill or a `grill-me` alias that loads `agent/skills/grill-me/SKILL.md`.
 6. During `grill-me`, make the agent critique the proposed design for reliability, context management, security, and scalability. Require short answers to: "What is unclear?", "What will agents likely misunderstand?", "What test proves the first behavior?", and "What decision must be recorded now?"
 7. Update `agent/design-tree.md` and `agent/ubiquitous-language.md` based on the grilling output. The review is not complete until the repo files change or the agent states that no change is needed and why.
-8. Add `agent-rules.md`, `tool-instruction-template.md`, `architecture.md`, and `testing-policy.md`. These files should tell agents what to read, which bounded context they may touch, when tests may change, and which checks must run.
-9. Add the four skills: `grill-me`, `testing-vertical-slices`, `improving-architecture`, and `tracking-entropy`. Each skill should include trigger conditions, required inputs, required output, and which repo files it may update.
-10. Add `agent-doctor.sh`, `sync-agent-env.sh`, `entropy-hotspots.sh`, `scripts/check.sh`, `scripts/check-md.sh`, `scripts/check-tests-unchanged.sh`, and `scripts/update-test-manifest.sh`.
-11. Run `agent/scripts/agent-doctor.sh` and `./scripts/check.sh`. Fix missing files before starting feature work.
+8. Add `agent-rules.md`, `task-routing.md`, `tool-instruction-template.md`, `architecture.md`, and `testing-policy.md`. These files should tell agents how to route the task, what to read, which bounded context they may touch, when tests may change, and which checks must run.
+9. Add the task workflow skills: `planning`, `adding-features`, `debugging`, and `explaining-codebase`.
+10. Add the supporting skills: `grill-me`, `testing-vertical-slices`, `improving-architecture`, and `tracking-entropy`. Each skill should include trigger conditions, required inputs, required output, and which repo files it may update.
+11. Add `agent-doctor.sh`, `sync-agent-env.sh`, `entropy-hotspots.sh`, `scripts/check.sh`, `scripts/check-md.sh`, `scripts/check-tests-unchanged.sh`, and `scripts/update-test-manifest.sh`.
+12. Run `agent/scripts/agent-doctor.sh` and `./scripts/check.sh`. Fix missing files before starting feature work.
 
 ### Week 1: Make Feedback Deterministic
 
@@ -1380,7 +1495,7 @@ Goal: use agents to make the codebase easier to change, not just larger.
 3. Run `improving-architecture` on the chosen hotspot. Ask it to identify shallow modules, hidden domain concepts, unclear ownership, and imports that cross boundaries.
 4. Choose one small refactor: extract a domain concept, move adapter code behind an interface, shrink a public API, or merge shallow pass-through modules.
 5. Before refactoring, run `testing-vertical-slices` to identify the smallest behavior test that protects the boundary. Add or identify that test before implementation.
-6. Make the refactor in one vertical slice. Avoid broad cleanup unless it directly supports the new boundary.
+6. Make the refactor in one internal implementation step. Avoid broad cleanup unless it directly supports the new boundary.
 7. Run targeted tests first, then `./scripts/check.sh`.
 8. Record the decision in an ADR if future agents need to preserve the boundary. Update `agent/architecture.md` if imports or ownership changed.
 
@@ -1389,28 +1504,23 @@ Goal: use agents to make the codebase easier to change, not just larger.
 Goal: make every feature follow the same generate-check-fix loop.
 
 1. Write a feature brief with `Feature`, `Domain Language`, `Bounded Context`, `Expected Behavior`, and `Checks`.
-2. Load the relevant canonical files: `project-brief.md`, `design-tree.md`, `architecture.md`, `ubiquitous-language.md`, `testing-policy.md`, and `agent-rules.md`.
-3. Run `grill-me` for non-trivial work, ambiguous bug fixes, architecture changes, cross-context changes, or security-sensitive changes. For tiny changes, write the five-bullet version: chosen design, rejected alternative, main risk, public interface, and test strategy.
-4. Run `testing-vertical-slices` before implementation. It should choose the narrowest useful test level: unit for pure rules, integration for adapters or persistence, E2E smoke for user workflows, and property-based tests for invariants.
-5. Define types, interfaces, and public boundaries first. Use names from `agent/ubiquitous-language.md`; add new terms before using them widely.
-6. Write or identify the smallest useful test. If the test suite must change, run `./scripts/update-test-manifest.sh` after the intentional edit and explain why the manifest changed.
-7. Implement one vertical slice. Keep external systems behind adapters and avoid importing another bounded context's internals.
-8. Run the mutating formatter command recorded in `agent/testing-policy.md`, then the narrowest check first, then broader checks, then `./scripts/check.sh`.
-9. If checks fail, repair from actual tool output. Do not weaken tests unless the feature brief explicitly says the expected behavior changed.
-10. Close the loop by updating `ubiquitous-language.md`, `design-tree.md`, `architecture.md`, or an ADR when the change creates durable knowledge.
-11. Final response must state: what changed, which skill was used, which checks ran, whether tests changed, and whether the manifest changed.
+2. If no approved plan exists, run `planning`, present the plan, and stop until the user ratifies it.
+3. Load the relevant canonical files: `project-brief.md`, `design-tree.md`, `architecture.md`, `ubiquitous-language.md`, `testing-policy.md`, and `agent-rules.md`.
+4. Run `grill-me` for non-trivial work, ambiguous bug fixes, architecture changes, cross-context changes, or security-sensitive changes. For tiny changes, write the five-bullet version: chosen design, rejected alternative, main risk, public interface, and test strategy.
+5. Run `testing-vertical-slices` before implementation. It should choose the narrowest useful test level: unit for pure rules, integration for adapters or persistence, E2E smoke for user workflows, and property-based tests for invariants.
+6. Define types, interfaces, and public boundaries first. Use names from `agent/ubiquitous-language.md`; add new terms before using them widely.
+7. Write or identify the smallest useful test. If the test suite must change, run `./scripts/update-test-manifest.sh` after the intentional edit and explain why the manifest changed.
+8. Implement one ratified internal feature slice. Keep external systems behind adapters and avoid importing another bounded context's internals.
+9. Run the mutating formatter command recorded in `agent/testing-policy.md`, then the narrowest check first, then broader checks, then `./scripts/check.sh`.
+10. If checks fail, repair from actual tool output. Do not weaken tests unless the feature brief explicitly says the expected behavior changed.
+11. Close the loop by updating `ubiquitous-language.md`, `design-tree.md`, `architecture.md`, or an ADR when the change creates durable knowledge.
+12. Final response must state: what changed, which skill was used, which checks ran, whether tests changed, whether the manifest changed, and whether temporary session state was cleared.
 
-Optional sub-agent cadence (easy to remove):
+Sub-agent cadence:
 
-- Low risk: run only the Slice Reviewer after implementation.
-- Medium risk: run Design Reviewer + Slice Reviewer.
-- High risk (architecture/security/data/critical workflow): run Design Reviewer + Architecture Reviewer + Slice Reviewer + Final Reviewer.
-
-Speed rule:
-
-- Keep these reviews focused on blockers only.
-- Avoid running all reviewers on tiny changes.
-- Prefer one reusable prompt per reviewer role to reduce prompt-writing overhead.
+- Use sub-agents only when the user explicitly asks for them.
+- Keep requested reviewer outputs focused on blockers only.
+- Without explicit sub-agent approval, perform the same review locally in the main agent.
 
 ## What To Avoid
 

@@ -43,7 +43,7 @@ chosen_hotspot:
   path: "<file>"
   why_selected: "<reason>"
 risk_reduction_hypothesis: "<what gets easier>"
-smallest_next_refactor_slice: "<single slice>"
+smallest_next_refactor_step: "<single step>"
 tests_to_add_or_verify:
   - "<path or command>"
 notes: "<short rationale>"
@@ -53,7 +53,7 @@ notes: "<short rationale>"
 
 - Output uses the exact template keys.
 - Hotspot list and chosen hotspot are both present.
-- Next refactor slice is concrete and bounded.
+- Next refactor step is concrete and bounded.
 - Tests to protect the refactor are identified.
 
 ## Refusal / Abort Conditions
@@ -73,10 +73,9 @@ Abort if:
 
 - Repository history is unavailable for churn analysis.
 - No meaningful hotspot can be identified in the requested window.
-- Refactor request is broad and cannot be reduced to one safe slice.
+- Refactor request is broad and cannot be reduced to one safe step.
 
 ## File Update Permissions
 
 - May update: `agent/design-tree.md`, `agent/adr/*`
 - Must not perform broad implementation changes in the same step unless explicitly requested
-

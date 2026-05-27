@@ -47,6 +47,7 @@ Shift from "prompt engineering" to "agent engineering" by following strict stand
 - **Strict Contracts**: Use strong typing and JSON Schemas for inputs/outputs. Trim outputs to minimize token usage.
 - **Informative Errors**: Return structured error messages that explain *why* a tool failed so the agent can self-correct.
 - **Progressive Disclosure**: Keep core instructions concise; move detailed reference material (error codes, complex schemas) to separate assets loaded only when needed.
+- **Temporary State Hygiene**: Keep session-specific implementation notes out of durable agent files. Use ignored session state for active work and clear it when the task finishes.
 
 ## Shared Language
 
@@ -90,7 +91,7 @@ Standardize on the **Model Context Protocol (MCP)** to provide deterministic too
 Align testing with domain intent through **BDD (Behavior Driven Development)**:
 
 - **Implementation**: Write test scenarios in plain English (e.g., using Cucumber) that use terms from the Ubiquitous Language.
-- **Vertical Slices**: Use the `tdd` skill to implement "red-green-refactor" loops for one vertical slice at a time, ensuring logic is verified at every step.
+- **Internal Feature Slices**: Use the `tdd` skill to implement "red-green-refactor" loops one safe internal step at a time, ensuring logic is verified without asking the developer to manage slice bookkeeping.
 - **Feedback Quality**: If a test fails, the agent must treat the failure output as a high-signal requirement rather than a generic error.
 
 ## Entropy
@@ -212,7 +213,7 @@ Without seams and adapters, external details leak into the domain.
 Use a systematic loop to **Rescue the Codebase** from "ball of mud" patterns:
 
 - **Friction Identification**: Periodically run an agent task to find "shallow" modules or areas where understanding one concept requires bouncing between many files.
-- **RFC Generation**: Spawn multiple sub-agents to design competing interfaces for a friction point.
+- **RFC Generation**: When the user explicitly requests parallel agent work, use multiple sub-agents to design competing interfaces for a friction point. Otherwise, perform the comparison locally.
 - **Decision Records**: Capture the winner in an ADR (Architecture Decision Record) and generate a concrete GitHub issue with the refactoring plan.
 - **Reference**: Use the [Improve Codebase Architecture](https://github.com/mattpocock/skills/blob/main/skills/engineering/improve-codebase-architecture/SKILL.md) framework to manage coupling effectively.
 

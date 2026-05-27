@@ -80,10 +80,9 @@ Abort if:
 
 - Ownership is unclear across contexts.
 - No coherent boundary can be identified from current code.
-- Requested refactor scope is too broad for one vertical slice and cannot be split safely.
+- Requested refactor scope is too broad for one internal implementation step and cannot be split safely.
 
 ## File Update Permissions
 
 - May update: implementation files, `agent/architecture.md`, `agent/design-tree.md`, `agent/adr/*`
-- Must keep changes scoped to one vertical slice per iteration
-
+- Must keep changes scoped to one internal implementation step per iteration

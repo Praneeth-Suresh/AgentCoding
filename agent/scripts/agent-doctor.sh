@@ -30,10 +30,14 @@ required_canonical=(
   "${ROOT_DIR}/agent/testing-policy.md"
   "${ROOT_DIR}/agent/security-policy.md"
   "${ROOT_DIR}/agent/agent-rules.md"
+  "${ROOT_DIR}/agent/task-routing.md"
   "${ROOT_DIR}/agent/tool-instruction-template.md"
   "${ROOT_DIR}/agent/test-manifest.conf"
   "${ROOT_DIR}/agent/mcp.json"
-  "${ROOT_DIR}/agent/skills/grill-me/SKILL.md"
+  "${ROOT_DIR}/agent/skills/planning/SKILL.md"
+  "${ROOT_DIR}/agent/skills/adding-features/SKILL.md"
+  "${ROOT_DIR}/agent/skills/debugging/SKILL.md"
+  "${ROOT_DIR}/agent/skills/explaining-codebase/SKILL.md"
   "${ROOT_DIR}/agent/skills/grill-me/SKILL.md"
   "${ROOT_DIR}/agent/skills/testing-vertical-slices/SKILL.md"
   "${ROOT_DIR}/agent/skills/improving-architecture/SKILL.md"
@@ -64,6 +68,12 @@ source "${ROOT_DIR}/scripts/test-manifest-lib.sh"
 tm_load_manifest_config "${ROOT_DIR}"
 
 command -v git >/dev/null 2>&1 || fail "git is not available on PATH"
+
+if [[ -f "${ROOT_DIR}/.gitignore" ]]; then
+  grep -qxF "agent/session-state.md" "${ROOT_DIR}/.gitignore" || fail ".gitignore must ignore agent/session-state.md"
+else
+  fail "missing file: .gitignore"
+fi
 
 if [[ -e "${ROOT_DIR}/.codex" && ! -d "${ROOT_DIR}/.codex" ]]; then
   fail ".codex must be a directory for generated shim output"

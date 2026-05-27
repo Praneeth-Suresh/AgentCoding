@@ -33,7 +33,7 @@ constraints:
 3. List viable options.
 4. Critique each option for reliability, context management, security, scalability, testability, and coupling.
 5. Ask: "What assumption would make this wrong?"
-6. Select an approach and define the first vertical slice.
+6. Select an approach and define the first internal implementation step.
 
 ## Output Template (required)
 
@@ -47,7 +47,7 @@ rejected_alternatives:
 main_risks:
   - "<risk>"
 assumption_that_can_break_plan: "<assumption>"
-first_vertical_slice: "<smallest end-to-end behavior>"
+first_internal_step: "<smallest end-to-end behavior>"
 checks_to_run:
   narrow: ["<command>"]
   broad: ["<command>"]
@@ -64,7 +64,7 @@ notes: "<short rationale>"
 
 - Output uses the exact template keys.
 - At least one rejected alternative is recorded.
-- First slice and checks are concrete and executable.
+- First internal step and checks are concrete and executable.
 - Design update decisions are explicit booleans.
 
 ## Refusal / Abort Conditions
@@ -90,4 +90,3 @@ Abort if:
 
 - May update: `agent/design-tree.md`, `agent/architecture.md`, `agent/ubiquitous-language.md`, `agent/adr/*`
 - Must not edit implementation code directly as part of this skill output phase
-

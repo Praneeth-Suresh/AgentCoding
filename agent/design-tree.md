@@ -26,10 +26,9 @@ Add or update this file when:
 
 - A decision is still evolving.
 - You are comparing options before implementation.
-- The choice may still change after one or two slices.
+- The choice may still change after one or two implementation iterations.
 
 Create an ADR when:
 
 - The decision changes module boundaries, persistence shape, adapter contracts, security model, naming conventions used across contexts, or test strategy.
 - Future contributors are likely to revisit the choice without clear repo history.
-
