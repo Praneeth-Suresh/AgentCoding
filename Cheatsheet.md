@@ -275,7 +275,7 @@ Do not use sub-agents unless I explicitly ask for them.
 Final response: what changed, checks run/skipped, tests/manifest changed, agent docs/ADRs updated, and whether temporary session state was cleared.
 ```
 
-Sub-agent reviewer prompts are intentionally not part of the default flow. Use them only when the user explicitly asks for sub-agents or parallel agent review.
+If you want to use sub-agents, add `Use sub-agents.` to the above prompt.
 
 After the first pass, review missing workflow gaps and continue one safe internal step at a time until complete.
 
@@ -312,6 +312,8 @@ Use agent/task-routing.md and the planning workflow.
 Present the plan for my approval. Do not implement yet.
 ```
 
+If you want to use sub-agents, add `Use sub-agents.` to the above prompt.
+
 Feature implementation prompt after approval:
 
 ```text
@@ -324,6 +326,8 @@ Clear temporary session state when the feature is complete.
 Do not weaken tests. If tests change intentionally, update the test manifest.
 Do not use sub-agents unless I explicitly ask for them.
 ```
+
+If you want to use sub-agents, add `Use sub-agents.` to the above prompt.
 
 Follow-up prompt to continue feature work:
 
@@ -796,6 +800,12 @@ Regenerate tool-specific instruction files from `agent/tool-instruction-template
 Find files that changed most often in Git history.
 
 ```bash
+./agent/scripts/module-doctor.sh
+```
+
+Validate all sub-module agent structures (if any exist).
+
+```bash
 git worktree list
 ```
 
@@ -842,89 +852,120 @@ If an agent makes a messy change:
 6. If one module is absorbing too much change, run `tracking-entropy` and then `improving-architecture`.
 7. If `agent/session-state.md` contains stale notes, either resume from them or clear them after extracting any durable decision.
 
-## 14. Move Only The New Retrieval Framework
+## 14. Sub-Module Agent Structure
 
-Use this when a repo already has this agent control plane and you only want to add the new retrieval framework plus the later session-state and `interview-me` updates. These commands avoid changing existing generated agent instruction files.
+Use this when a project grows to 3+ independently complex bounded contexts that each need their own design decisions, domain language, and testing commands.
 
-Set paths:
+### When To Use
 
-```bash
-FRAMEWORK=/path/to/AgentCoding
-TARGET=/path/to/existing-project
+- Monorepo with 3+ independently deployable services or packages.
+- Sub-modules with different tech stacks or domain vocabularies.
+- A single root `agent/` has become too broad for agents to load efficiently.
+
+### When NOT To Use
+
+- Projects with fewer than 3 bounded contexts (the root `agent/` is sufficient).
+- Sub-modules that share the same domain language, architecture, and test commands.
+
+The `init-module-agent.sh` script enforces this: it refuses to create a sub-module agent unless 3+ bounded contexts are declared in root `agent/architecture.md`.
+
+### Structure
+
+```text
+repo-root/
+  agent/                          ← root (global rules, shared language, skills, scripts)
+  modules/
+    billing/
+      agent/                      ← module-level (billing-specific decisions)
+        module-context.md
+        project-brief.md
+        design-tree.md
+        architecture.md
+        ubiquitous-language.md
+        testing-policy.md
+        adr/
+      src/
+    identity/
+      agent/
+      src/
+    notifications/
+      agent/
+      src/
 ```
 
-Preview what will be added:
+### What Lives Where
+
+| Concern | Root `agent/` | Module `agent/` |
+| --- | --- | --- |
+| Engineering rules | ✓ (authoritative) | inherits |
+| Security policy | ✓ (authoritative) | inherits |
+| Skills | ✓ (shared) | inherits |
+| Scripts | ✓ (shared) | inherits |
+| Project brief | whole-system goal | module goal |
+| Design tree | cross-module decisions | module-internal decisions |
+| Architecture | module map + cross-module boundaries | internal module structure |
+| Ubiquitous language | shared terms | module-local terms |
+| Testing policy | root gate commands | module-specific commands |
+| ADRs | cross-module decisions | module-internal decisions |
+
+### Create A Sub-Module Agent
 
 ```bash
-find "$FRAMEWORK/agent/skills" -maxdepth 2 -type f -name 'SKILL.md' \
-  \( -path '*/planning/*' -o -path '*/adding-features/*' -o -path '*/debugging/*' -o -path '*/explaining-codebase/*' -o -path '*/interview-me/*' \)
+mkdir -p modules/billing
+./agent/scripts/init-module-agent.sh modules/billing billing "Plans, invoices, subscription state"
 ```
 
-Copy only missing retrieval files:
+Then fill the generated files with real content and update root `agent/architecture.md`.
+
+### Validate All Modules
 
 ```bash
-mkdir -p \
-  "$TARGET/agent/skills/planning" \
-  "$TARGET/agent/skills/adding-features" \
-  "$TARGET/agent/skills/debugging" \
-  "$TARGET/agent/skills/explaining-codebase" \
-  "$TARGET/agent/skills/interview-me"
-
-cp -n "$FRAMEWORK/agent/task-routing.md" "$TARGET/agent/task-routing.md"
-cp -n "$FRAMEWORK/agent/skills/planning/SKILL.md" "$TARGET/agent/skills/planning/SKILL.md"
-cp -n "$FRAMEWORK/agent/skills/adding-features/SKILL.md" "$TARGET/agent/skills/adding-features/SKILL.md"
-cp -n "$FRAMEWORK/agent/skills/debugging/SKILL.md" "$TARGET/agent/skills/debugging/SKILL.md"
-cp -n "$FRAMEWORK/agent/skills/explaining-codebase/SKILL.md" "$TARGET/agent/skills/explaining-codebase/SKILL.md"
-cp -n "$FRAMEWORK/agent/skills/interview-me/SKILL.md" "$TARGET/agent/skills/interview-me/SKILL.md"
-
-grep -qxF 'agent/session-state.md' "$TARGET/.gitignore" 2>/dev/null || printf '\nagent/session-state.md\n' >> "$TARGET/.gitignore"
+./agent/scripts/module-doctor.sh
 ```
 
-Alternative with `rsync`:
+This warns if fewer than 3 module agents exist.
+
+### Agent Prompt For Module Work
+
+```text
+Working in: modules/billing
+
+[feature/bug/plan request]
+
+Read modules/billing/agent/module-context.md for scope and precedence.
+Use the module's agent/ files for module-specific context.
+Use root agent/ for skills, rules, and scripts.
+Run the module's check command first, then ./scripts/check.sh.
+```
+
+### Cross-Module Feature Prompt
+
+```text
+This feature touches modules/billing and modules/identity.
+
+Read each module's agent/module-context.md.
+Changes to module internals follow that module's agent/ files.
+Interface changes between modules follow root agent/architecture.md.
+New shared terms go in root agent/ubiquitous-language.md.
+If a boundary changes, create a root-level ADR.
+```
+
+### Precedence
+
+1. Explicit user instructions.
+2. Module `agent/` files (for module-specific concerns).
+3. Root `agent/` files (for shared rules, skills, scripts, security).
+4. Existing code and conventions.
+
+### Managing Over Time
+
+Adding a module:
 
 ```bash
-rsync -av --ignore-existing "$FRAMEWORK/agent/task-routing.md" "$TARGET/agent/task-routing.md"
-rsync -av --ignore-existing "$FRAMEWORK/agent/skills/planning/" "$TARGET/agent/skills/planning/"
-rsync -av --ignore-existing "$FRAMEWORK/agent/skills/adding-features/" "$TARGET/agent/skills/adding-features/"
-rsync -av --ignore-existing "$FRAMEWORK/agent/skills/debugging/" "$TARGET/agent/skills/debugging/"
-rsync -av --ignore-existing "$FRAMEWORK/agent/skills/explaining-codebase/" "$TARGET/agent/skills/explaining-codebase/"
-rsync -av --ignore-existing "$FRAMEWORK/agent/skills/interview-me/" "$TARGET/agent/skills/interview-me/"
-
-grep -qxF 'agent/session-state.md' "$TARGET/.gitignore" 2>/dev/null || printf '\nagent/session-state.md\n' >> "$TARGET/.gitignore"
+mkdir -p modules/new-module
+./agent/scripts/init-module-agent.sh modules/new-module new-module "Domain description"
 ```
 
-If the target repo already has the retrieval framework but not the later debugging/interview updates, copy these files explicitly:
+Splitting a module: create the new module agent, move relevant ADRs, update both modules and root `architecture.md`, create a root ADR.
 
-```bash
-mkdir -p "$TARGET/agent/skills/interview-me"
-
-cp "$FRAMEWORK/agent/skills/interview-me/SKILL.md" "$TARGET/agent/skills/interview-me/SKILL.md"
-cp "$FRAMEWORK/agent/skills/debugging/SKILL.md" "$TARGET/agent/skills/debugging/SKILL.md"
-cp "$FRAMEWORK/agent/skills/planning/SKILL.md" "$TARGET/agent/skills/planning/SKILL.md"
-cp "$FRAMEWORK/agent/task-routing.md" "$TARGET/agent/task-routing.md"
-
-grep -qxF 'agent/session-state.md' "$TARGET/.gitignore" 2>/dev/null || printf '\nagent/session-state.md\n' >> "$TARGET/.gitignore"
-```
-
-Then manually port these small references into target repos if they have local customizations you do not want to overwrite:
-
-- `agent/skills/debugging/SKILL.md`: add the Session Error History rules; keep at most 5 compact entries in `agent/session-state.md`, summarize instead of storing raw logs, and clear resolved entries.
-- `agent/skills/planning/SKILL.md`: call `interview-me` only when `grill-me` leaves unresolved user judgment that cannot be answered from repo inspection.
-- `agent/task-routing.md`: add `interview-me` as a supporting escalation after unresolved `grill-me` decisions.
-- `agent/agent-rules.md`: add the same `interview-me` trigger and the rule to clear resolved session error history.
-- `agent/scripts/agent-doctor.sh`: require `agent/skills/interview-me/SKILL.md`.
-- `agent/README.md`: mention `interview-me` and bounded session error history.
-
-If you want future generated instruction shims to include these rules, port the relevant changes into `agent/tool-instruction-template.md`. Do not run the sync script until you are ready to update generated files.
-
-Do not run this in the target repo if you want to preserve existing generated instruction files:
-
-```bash
-./agent/scripts/sync-agent-env.sh
-```
-
-After copying, inspect the added files:
-
-```bash
-git -C "$TARGET" status --short
-```
+Merging modules: choose the surviving module, merge design-tree and language, remove the defunct `agent/`, update root `architecture.md`, create a root ADR.

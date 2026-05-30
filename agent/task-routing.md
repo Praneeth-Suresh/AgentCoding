@@ -34,7 +34,34 @@ Feature implementation requires an approved plan.
 
 Do not use sub-agents unless the user explicitly asks for sub-agents, parallel agents, reviewer agents, or competing agent implementations.
 
-If a workflow mentions reviewer or parallel-agent steps and the user did not explicitly request sub-agents, perform the review locally in the main agent.
+If the user explicity requests the use of sub-agents, spin up the following sub-agents:
+
+- Design Reviewer (required sub-agent role: independent reviewer)
+  Prompt:
+  Review the feature brief and grill-me output before coding.
+  Use only the Step 10-style checklist: language, bounded context, public interfaces, adapter isolation, tests, and coupling.
+  Return only blockers, risk level (low/medium/high), and one exact fix per blocker.
+  If no blockers, reply exactly: approved for implementation
+
+- Architecture Reviewer (required sub-agent role: improving-architecture)
+  Prompt:
+  Review this slice for boundary drift.
+  Return one minimal boundary improvement, the public API change, and the smallest protecting test.
+  Do not propose broad cleanup.
+
+- Slice Reviewer (required sub-agent role: code reviewer)
+  Prompt:
+  Review only the current slice diff plus narrow-check output.
+  Report only blocking issues with exact fixes.
+  Ignore style-only or optional cleanup.
+  If no blockers, reply exactly: approved for next slice
+
+- Final Reviewer (required sub-agent role: independent merge reviewer)
+  Prompt:
+  Review full diff and changed agent/ docs before merge.
+  Prioritize boundary drift, test weakening, adapter leakage, and stale instruction files.
+  Report only merge blockers and exact fixes.
+  If no blockers, reply exactly: approved for merge
 
 ## Supporting Skill Escalation
 
