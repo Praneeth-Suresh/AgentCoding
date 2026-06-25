@@ -6,6 +6,18 @@ Single entrypoint:
 ./scripts/check.sh
 ```
 
+## Interactive Project Setup
+
+For a new project, run:
+
+```bash
+./scripts/setup-project.sh /path/to/project
+```
+
+The script copies the agent control plane, configures `agent/affected-tests.conf`, syncs generated instruction shims, creates the initial test manifest, and can enable `githooks/pre-commit`.
+
+When the listed stack or test-runner options are not enough, choose `Use AI agent fallback`. The script will ask for a project/setup prompt and run Codex, Claude, or a custom headless command from inside the target project.
+
 `check.sh` runs:
 
 1. `check-md.sh`

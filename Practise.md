@@ -25,6 +25,14 @@ Use the same discipline for commit-time tests. Developers should not have to cho
 
 Add an `agent/` directory to the repo. This becomes the shared source of truth for all coding agents.
 
+The easiest way to add it to a project is:
+
+```bash
+./scripts/setup-project.sh /path/to/project
+```
+
+Use the guided options for common stacks. If the options do not fit, choose `Use AI agent fallback`, describe the build in the prompt, and let the selected headless coding agent finish the project-specific setup from inside the target directory.
+
 Recommended structure:
 
 ```text

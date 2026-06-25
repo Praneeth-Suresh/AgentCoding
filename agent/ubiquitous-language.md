@@ -9,6 +9,8 @@
 | Feedback Loop | `FeedbackLoop` | Generate-check-fix cycle using deterministic tools. | Must include real tool output. | `TryAgainLoop` |
 | Affected Test Gate | `scripts/check-affected.sh` | Commit and manual check step that maps changed files to related tests or full-test fallback. | Must be deterministic and run through `scripts/check.sh`. | Ad hoc local test picking |
 | Full Test Fallback | `FULL_TEST_CMD` | Complete project test command used when a change is too broad to select related tests safely. | Configured in `agent/affected-tests.conf`. | Silent skip for broad changes |
+| Setup Script | `scripts/setup-project.sh` | Interactive onboarding command that installs the agent control plane into a target project. | Must offer deterministic defaults and explicit AI fallback. | Manual multi-file setup checklist |
+| AI Agent Fallback | `run_agent_fallback` | Opt-in setup path that hands project-specific configuration to a selected headless coding agent. | Prompt must be user-provided and not stored in tracked files. | Hidden automation |
 | Entropy Hotspot | `EntropyHotspot` | High-churn and high-complexity area likely to degrade maintainability. | Used for targeted refactoring. | `MessyFile` |
 | Vertical Slice | `VerticalSlice` | Smallest end-to-end behavior change through one boundary. | Must be testable in isolation. | `BigRefactor` |
 | Adapter | `Adapter` | Boundary object that isolates external systems from domain logic. | Domain must not depend on vendor details. | `ServiceHelper` |

@@ -87,6 +87,7 @@ collect_changed_files() {
         git -C "${ROOT_DIR}" ls-files --others --exclude-standard
       else
         git -C "${ROOT_DIR}" ls-files
+        git -C "${ROOT_DIR}" ls-files --others --exclude-standard
       fi
       ;;
     base)
@@ -120,6 +121,12 @@ run_related_tests() {
 
   run_full_tests
 }
+
+if ! git -C "${ROOT_DIR}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  printf "check-affected: not a Git repository; using full test fallback\n"
+  run_full_tests
+  exit 0
+fi
 
 mapfile -t changed_files < <(collect_changed_files | LC_ALL=C sort -u)
 

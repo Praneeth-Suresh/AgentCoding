@@ -33,6 +33,7 @@ required_canonical=(
   "${ROOT_DIR}/agent/task-routing.md"
   "${ROOT_DIR}/agent/tool-instruction-template.md"
   "${ROOT_DIR}/agent/test-manifest.conf"
+  "${ROOT_DIR}/agent/affected-tests.conf"
   "${ROOT_DIR}/agent/mcp.json"
   "${ROOT_DIR}/agent/skills/planning/SKILL.md"
   "${ROOT_DIR}/agent/skills/adding-features/SKILL.md"
@@ -56,7 +57,9 @@ required_exec=(
   "${ROOT_DIR}/agent/scripts/entropy-hotspots.sh"
   "${ROOT_DIR}/scripts/check.sh"
   "${ROOT_DIR}/scripts/check-md.sh"
+  "${ROOT_DIR}/scripts/check-affected.sh"
   "${ROOT_DIR}/scripts/check-tests-unchanged.sh"
+  "${ROOT_DIR}/scripts/setup-project.sh"
   "${ROOT_DIR}/scripts/update-test-manifest.sh"
 )
 

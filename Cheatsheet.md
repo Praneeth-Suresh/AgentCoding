@@ -2,7 +2,19 @@
 
 Use this when starting a new software project from this boilerplate. The goal is simple: copy the control plane, fill the project facts, wire the checks, then make every agent change follow the same loop.
 
-## 0. Copy The Boilerplate
+## 0. Run The Setup Script
+
+For the lowest-friction setup, run:
+
+```bash
+./scripts/setup-project.sh /path/to/new-project
+```
+
+The script asks for the target directory, stack, test runner, and whether to enable the Git hook. If the listed choices are not enough, choose `Use AI agent fallback`; the script will ask for a setup prompt and run Codex, Claude, or a custom headless command from inside the target project.
+
+After this succeeds, skip to "Fill The Minimum Project Facts".
+
+## 0.1 Manual Boilerplate Copy
 
 From this repository, copy these paths into the new project root:
 
@@ -46,7 +58,7 @@ Create the first manifest:
 
 If your repo ignores a generated tool directory such as `.codex/`, either track the needed shim explicitly or adjust `agent/scripts/agent-doctor.sh` so CI does not require ignored local files.
 
-## 0.1 Configure Browser MCP (Web/HTML Work)
+## 0.2 Configure Browser MCP (Web/HTML Work)
 
 For deterministic browser feedback, standardize on **Microsoft Playwright MCP**.
 
