@@ -19,6 +19,8 @@ Every agent task should therefore follow this shape:
 
 Do not ask the agent to "build the app" in one large pass. Ask it to build one behavior, through one module boundary, with one testable outcome.
 
+Use the same discipline for commit-time tests. Developers should not have to choose a subset by hand on every commit; `scripts/check.sh` should run an affected test gate that selects from changed files and falls back to full tests when selection is unsafe.
+
 ## Step 1: Create The Agent Control Plane
 
 Add an `agent/` directory to the repo. This becomes the shared source of truth for all coding agents.
@@ -406,6 +408,21 @@ During bug fixes, tests can be added. Existing test assertions can be changed on
 - Relevant integration tests
 - E2E smoke test for user-facing workflow changes
 ```
+
+For efficient commits, add an affected test gate to the policy:
+
+```md
+## Affected Test Gate
+
+- Developers enable hooks once with `git config core.hooksPath githooks`.
+- The pre-commit hook runs `./scripts/check.sh` with `CHECK_AFFECTED_MODE=staged`.
+- `scripts/check-affected.sh` reads `agent/affected-tests.conf`.
+- Related source/test changes run `RELATED_TEST_CMD` with changed files appended.
+- Broad changes run `FULL_TEST_CMD`.
+- If no project test runner exists yet, the gate exits cleanly and the deterministic checks still run.
+```
+
+This is deliberately lower-friction than asking developers to remember per-stack commands. They configure the runner once, then commit normally.
 
 ### `agent/agent-rules.md`
 

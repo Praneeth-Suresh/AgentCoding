@@ -155,20 +155,36 @@ Normal rule:
 
 ## 3. Configure The Project Check
 
-Edit:
+Configure the affected test gate:
 
 ```text
-scripts/check-project.sh
+agent/affected-tests.conf
 ```
 
-Put your real project commands there. This is the project-specific extension point already called by `./scripts/check.sh`; do not add another wrapper script for formatters or linters.
+This keeps the developer workflow small: developers enable the Git hook once, and commits automatically run the relevant project tests for staged changes.
+
+Set `RELATED_TEST_CMD` when your test runner can select tests from changed files. Set `FULL_TEST_CMD` for broad changes that should run the whole suite.
+
+Examples:
+
+```bash
+# Jest
+RELATED_TEST_CMD=(npx --no-install jest --findRelatedTests --passWithNoTests)
+FULL_TEST_CMD=(npm test)
+
+# pytest with testmon
+RELATED_TEST_CMD=(pytest --testmon)
+FULL_TEST_CMD=(pytest)
+```
+
+`scripts/check-project.sh` is already wired to call `scripts/check-affected.sh`; keep custom project checks behind that gate unless they are fast enough to run on every commit.
 
 Required order:
 
 1. Formatter check.
 2. Linter.
 3. Typecheck.
-4. Unit/integration tests.
+4. Affected unit/integration tests, with full-test fallback for broad changes.
 
 Use non-mutating formatter check mode in `check-project.sh` when the tool supports it. Agents should still run the mutating formatter command immediately after writing code, but the shared gate should fail cleanly in hooks and CI instead of silently rewriting files.
 
@@ -178,7 +194,7 @@ Examples:
 npm run format:check
 npm run lint
 npm run typecheck
-npm test
+./scripts/check-affected.sh --worktree
 ```
 
 or:
@@ -187,7 +203,7 @@ or:
 ruff format --check .
 ruff check .
 pyright
-pytest
+./scripts/check-affected.sh --worktree
 ```
 
 or:
@@ -196,7 +212,7 @@ or:
 test -z "$(gofmt -l .)"
 go vet ./...
 golangci-lint run
-go test ./...
+./scripts/check-affected.sh --worktree
 ```
 
 Also update `agent/testing-policy.md` so agents know both commands:
@@ -213,7 +229,7 @@ Then run the full gate:
 ./scripts/check.sh
 ```
 
-Use `./scripts/check.sh` as the manual "am I still safe?" command.
+Use `./scripts/check.sh` as the manual "am I still safe?" command. Manual checks use worktree changes. Commit hooks use staged changes.
 
 ## 4. Optional Git Hook
 
@@ -228,6 +244,8 @@ The hook runs:
 ```bash
 ./scripts/check.sh
 ```
+
+During commits, it sets `CHECK_AFFECTED_MODE=staged`, so the affected test gate selects tests from exactly what is being committed. Developers do not need to pass file lists or choose test commands manually.
 
 Skip this if you only want to run checks manually.
 

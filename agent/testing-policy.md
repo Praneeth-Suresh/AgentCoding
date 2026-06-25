@@ -6,6 +6,7 @@
 | --- | --- | --- | --- |
 | Markdown sanity | `./scripts/check-md.sh` | available | Unclosed fences and tabs |
 | Test manifest immutability check | `./scripts/check-tests-unchanged.sh` | available | Detects changes in configured test scope from `agent/test-manifest.conf` |
+| Affected test gate | `./scripts/check-affected.sh --worktree` | available | Selects related tests from changed files and uses full-test fallback for broad changes |
 | Aggregate deterministic gate | `./scripts/check.sh` | available | Runs all deterministic checks |
 | Format | `not available yet` | unavailable | No formatter configured yet |
 | Lint | `not available yet` | unavailable | No linter configured yet |
@@ -22,6 +23,29 @@
 4. Run narrow checks first, then broader checks.
 5. Repair from actual tool output.
 6. For web UI or HTML/CSS work, include a Playwright MCP browser verification step.
+
+## Affected Test Gate
+
+Commit-time tests run through the affected test gate so developers get fast feedback without choosing test subsets manually.
+
+- The pre-commit hook sets `CHECK_AFFECTED_MODE=staged` and runs `./scripts/check.sh`.
+- Manual `./scripts/check.sh` uses worktree mode by default and selects from all changes relative to `HEAD`.
+- `scripts/check-affected.sh` reads `agent/affected-tests.conf`.
+- Changes to broad configuration, dependency, hook, or test-strategy files force `FULL_TEST_CMD` when configured.
+- Source and test changes run `RELATED_TEST_CMD` with changed files appended when configured.
+- If no project test runner is configured yet, the gate reports that no project tests are available and exits successfully.
+
+Recommended project configurations:
+
+```bash
+# Jest
+RELATED_TEST_CMD=(npx --no-install jest --findRelatedTests --passWithNoTests)
+FULL_TEST_CMD=(npm test)
+
+# pytest with testmon
+RELATED_TEST_CMD=(pytest --testmon)
+FULL_TEST_CMD=(pytest)
+```
 
 ## Test Modification Rule
 

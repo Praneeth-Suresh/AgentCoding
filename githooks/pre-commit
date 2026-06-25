@@ -7,5 +7,4 @@ if [[ -z "${ROOT_DIR}" ]]; then
   exit 0
 fi
 
-"${ROOT_DIR}/scripts/check.sh"
-
+CHECK_AFFECTED_MODE=staged "${ROOT_DIR}/scripts/check.sh"
