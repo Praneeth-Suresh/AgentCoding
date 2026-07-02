@@ -25,6 +25,19 @@
 6. Repair from actual tool output.
 7. For web UI or HTML/CSS work, include a Playwright MCP browser verification step.
 
+## Generated Output Verification
+
+For static-site changes, source inspection is not enough. Always verify generated output that users, crawlers, or downstream tooling receive.
+
+Check affected:
+
+- Relevant `dist` HTML or equivalent built pages.
+- Sitemap, robots, search index, feed, or structured data output.
+- Copied assets when asset handling changed.
+- Browser behavior when UI, routing, or layout changed.
+
+If generated output is unavailable, explain why and run the closest deterministic build or inspection command.
+
 ## Affected Test Gate
 
 Commit-time tests run through the affected test gate so developers get fast feedback without choosing test subsets manually.

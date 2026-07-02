@@ -8,6 +8,7 @@ Purpose: choose the smallest task workflow to load. Do not load every workflow b
 2. Load exactly one matching workflow from `agent/skills/<skill-name>/SKILL.md`.
 3. Load canonical project files only when that workflow asks for them.
 4. If the task changes, re-route before continuing.
+5. For non-trivial work with multiple viable implementation paths, present the paths and wait for user approval unless the user explicitly allowed the agent to choose.
 
 ## Intent Map
 
@@ -24,6 +25,7 @@ Purpose: choose the smallest task workflow to load. Do not load every workflow b
 Feature implementation requires an approved plan.
 
 - If the user asks for a feature and there is no approved plan in the current conversation or `agent/design-tree.md`, load `adding-features` and produce the plan first.
+- For non-trivial implementation plans, include implementation paths, acceptance criteria, commit boundaries, and risks before coding.
 - Present the plan to the user and stop.
 - Do not edit implementation code until the user ratifies the plan.
 - After ratification, implement one internal feature slice at a time.

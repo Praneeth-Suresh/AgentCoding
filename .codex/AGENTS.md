@@ -58,10 +58,12 @@ Do not use sub-agents unless the user explicitly asks for sub-agents, parallel a
 2. Identify intended public interface and likely files to change.
 3. Add or identify the smallest deterministic test/check for behavior.
 4. Before any meaningful redirect or implementation, state success checks: expected artifact change, narrow command, broader command, generated output or browser evidence when applicable, and one user-visible behavior.
-5. Implement one internal feature slice.
-6. Run narrow checks, then broader checks.
-7. Repair from actual tool output.
-8. Update glossary/design-tree/architecture/ADR files if design knowledge changed.
+5. For non-trivial work with multiple viable implementation paths, present the options and wait for user approval unless the user explicitly allowed you to choose.
+6. Before coding, state commit boundaries: one purpose, expected files, and validating check command per boundary.
+7. Implement one internal feature slice.
+8. Run narrow checks, then broader checks.
+9. Repair from actual tool output.
+10. Update glossary/design-tree/architecture/ADR files if design knowledge changed.
 
 For feature implementation, an approved plan is mandatory. If no approved plan exists, produce the plan first, present it to the user, and stop. Do not implement until the user ratifies the plan.
 
@@ -82,11 +84,15 @@ For post-run cleanup prompts, do not implement new features. Read changed files 
 - Do not let temporary implementation notes accumulate in canonical agent files.
 - Keep session debugging history bounded in `agent/session-state.md`; summarize failures, cap entries, and clear resolved errors.
 
+Before deleting or consolidating root planning or documentation files, list every file, what is preserved, what is lost, and where replacement content lives, then wait for explicit approval.
+
 ## Browser Verification Rule
 
 - For web app, HTML, or CSS tasks, prefer **Microsoft Playwright MCP** as the browser tool.
 - Use browser state/tool output (for example accessibility snapshots and DOM state) as the source of truth for UI verification.
 - Do not mark browser-related work complete until the behavior is confirmed through Playwright MCP checks.
+
+For static-site changes, source inspection is not enough. Verify affected generated output such as `dist` HTML, sitemap, robots, search index, feeds, copied assets, and browser behavior when relevant.
 
 ## Verification
 
@@ -95,6 +101,8 @@ Run checks required by `agent/testing-policy.md` and local project tooling.
 Final response must include:
 
 - What changed.
+- Map each changed file to the intended commit boundary.
+- Flag any changed file that does not belong to a stated commit boundary.
 - Checks run.
 - Checks skipped or unavailable.
 - Design files/ADR updates.

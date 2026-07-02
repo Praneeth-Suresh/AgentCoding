@@ -10,8 +10,10 @@
 6. Run `interview-me` only when `grill-me` leaves an unresolved user-judgment question.
 7. Choose the smallest deterministic check that can prove behavior.
 8. State success checks before any meaningful redirect or implementation.
-9. Use `agent/session-state.md` only for temporary, session-specific implementation state.
-10. Do not create sub-module agent structures unless the project has 3+ independently complex bounded contexts declared in root `agent/architecture.md` (in which case, read through `agent/guides/sub-module-agents.md` for more details). For smaller projects, the root `agent/` is sufficient and sub-modules waste context.
+9. State commit boundaries before implementation.
+10. If multiple implementation paths exist, present options and wait for user approval unless the user explicitly allowed the agent to choose.
+11. Use `agent/session-state.md` only for temporary, session-specific implementation state.
+12. Do not create sub-module agent structures unless the project has 3+ independently complex bounded contexts declared in root `agent/architecture.md` (in which case, read through `agent/guides/sub-module-agents.md` for more details). For smaller projects, the root `agent/` is sufficient and sub-modules waste context.
 
 ## While Coding
 
@@ -24,6 +26,16 @@
 7. For web app or HTML/CSS tasks, use Microsoft Playwright MCP for browser verification instead of screenshot-only assumptions.
 8. Do not use sub-agents unless the user explicitly asks for them.
 9. Do not expose feature-slice bookkeeping to the user.
+
+## Deletion And Consolidation Safeguard
+
+Before deleting or consolidating root planning or documentation files:
+
+1. List every file to delete or consolidate.
+2. State what information is preserved.
+3. State what information is lost.
+4. State where replacement content will live.
+5. Wait for explicit user approval before editing those files.
 
 ## Post-Run Cleanup Review
 
@@ -48,6 +60,8 @@ After a long product run, if the user asks for cleanup or extraction review:
 Final response must include:
 
 - What changed.
+- Map each changed file to the intended commit boundary.
+- Flag any changed file that does not belong to a stated commit boundary.
 - Which checks ran.
 - Which checks were skipped or unavailable.
 - Whether tests changed.
